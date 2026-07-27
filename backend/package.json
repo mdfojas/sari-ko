@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "migrate:create": "node-pg-migrate create -m db/migrations -j sql",
     "migrate:up": "node-pg-migrate up -m db/migrations --envPath .env",
-    "migrate:down": "node-pg-migrate down -m db/migrations --envPath .env"
+    "migrate:down": "node-pg-migrate down -m db/migrations --envPath .env",
+    "test": "vitest run"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -21,6 +22,7 @@
     "@types/node": "^22.9.0",
     "@types/pg": "^8.20.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.10"
   }
 }
