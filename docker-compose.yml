@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: sariko
+      POSTGRES_PASSWORD: sariko
+      POSTGRES_DB: sariko
+    ports:
+      - '5432:5432'
+    volumes:
+      - sariko-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  sariko-postgres-data:
