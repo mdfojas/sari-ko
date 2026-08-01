@@ -43,6 +43,42 @@ export default async function productRoutes(app: FastifyInstance) {
     return rows;
   });
 
+  app.get<{ Querystring: { q?: string } }>('/products/search', async (request) => {
+    const q = request.query.q ?? '';
+    const { rows } = await pool.query(
+      `${PRODUCT_SELECT}
+       WHERE p.name ILIKE '%' || $1 || '%'
+          OR EXISTS (SELECT 1 FROM unnest(p.other_names) AS alias WHERE alias ILIKE '%' || $1 || '%')
+       ORDER BY p.id`,
+      [q],
+    );
+    return rows;
+  });
+
+  app.get<{ Params: { code: string } }>('/products/barcode/:code', async (request, reply) => {
+    const { rows } = await pool.query(`${PRODUCT_SELECT} WHERE p.barcode = $1`, [request.params.code]);
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Product not found' });
+    }
+    return rows[0];
+  });
+
+  app.get<{ Params: { code: string } }>('/products/barcode/:code/store-prices', async (request, reply) => {
+    const { rows: productRows } = await pool.query(`SELECT id, name FROM products WHERE barcode = $1`, [
+      request.params.code,
+    ]);
+    if (productRows.length === 0) {
+      return reply.code(404).send({ error: 'Product not found' });
+    }
+    const product = productRows[0];
+    const { rows: storePrices } = await pool.query(
+      `SELECT id, product_id, store_name, price, created_at, updated_at
+       FROM store_prices WHERE product_id = $1 ORDER BY id`,
+      [product.id],
+    );
+    return { product, store_prices: storePrices };
+  });
+
   app.get<{ Params: { id: string } }>('/products/:id', async (request, reply) => {
     const product = await findProductById(Number(request.params.id));
     if (!product) {
