@@ -200,4 +200,102 @@ export default async function productRoutes(app: FastifyInstance) {
     }
     return reply.code(204).send();
   });
+
+  app.get<{ Params: { id: string } }>('/products/:id/store-prices', async (request) => {
+    const { rows } = await pool.query(
+      `SELECT id, product_id, store_name, price, created_at, updated_at
+       FROM store_prices WHERE product_id = $1 ORDER BY id`,
+      [Number(request.params.id)],
+    );
+    return rows;
+  });
+
+  app.post<{ Params: { id: string }; Body: { store_name?: string; price?: number } }>(
+    '/products/:id/store-prices',
+    async (request, reply) => {
+      const productId = Number(request.params.id);
+      const { store_name, price } = request.body;
+
+      if (!store_name || price === undefined) {
+        return reply.code(400).send({ error: 'store_name and price are required' });
+      }
+
+      const product = await findProductById(productId);
+      if (!product) {
+        return reply.code(404).send({ error: 'Product not found' });
+      }
+
+      const { rows } = await pool.query(
+        `INSERT INTO store_prices (product_id, store_name, price) VALUES ($1, $2, $3)
+         RETURNING id, product_id, store_name, price, created_at, updated_at`,
+        [productId, store_name, price],
+      );
+      return reply.code(201).send(rows[0]);
+    },
+  );
+
+  app.get<{ Params: { id: string } }>('/store-prices/:id', async (request, reply) => {
+    const { rows } = await pool.query(
+      `SELECT id, product_id, store_name, price, created_at, updated_at FROM store_prices WHERE id = $1`,
+      [Number(request.params.id)],
+    );
+    if (rows.length === 0) {
+      return reply.code(404).send({ error: 'Store price not found' });
+    }
+    return rows[0];
+  });
+
+  app.patch<{ Params: { id: string }; Body: { store_name?: string; price?: number } }>(
+    '/store-prices/:id',
+    async (request, reply) => {
+      const id = Number(request.params.id);
+      const { store_name, price } = request.body;
+
+      const columns: string[] = [];
+      const values: unknown[] = [];
+      const setField = (column: string, value: unknown) => {
+        values.push(value);
+        columns.push(`${column} = $${values.length}`);
+      };
+
+      if (store_name !== undefined) setField('store_name', store_name);
+      if (price !== undefined) setField('price', price);
+
+      if (columns.length === 0) {
+        return reply.code(400).send({ error: 'No updatable fields provided' });
+      }
+
+      setField('updated_at', new Date());
+      values.push(id);
+
+      const { rows } = await pool.query(
+        `UPDATE store_prices SET ${columns.join(', ')} WHERE id = $${values.length}
+         RETURNING id, product_id, store_name, price, created_at, updated_at`,
+        values,
+      );
+      if (rows.length === 0) {
+        return reply.code(404).send({ error: 'Store price not found' });
+      }
+      return rows[0];
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>('/store-prices/:id', async (request, reply) => {
+    const id = Number(request.params.id);
+
+    const { rows: selectedRows } = await pool.query(`SELECT id FROM products WHERE selected_store_price_id = $1`, [
+      id,
+    ]);
+    if (selectedRows.length > 0) {
+      return reply
+        .code(409)
+        .send({ error: 'Cannot delete a store price that is currently selected for a product' });
+    }
+
+    const { rowCount } = await pool.query(`DELETE FROM store_prices WHERE id = $1`, [id]);
+    if (rowCount === 0) {
+      return reply.code(404).send({ error: 'Store price not found' });
+    }
+    return reply.code(204).send();
+  });
 }
