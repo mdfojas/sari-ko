@@ -1,4 +1,5 @@
 import { pool } from '../../shared/db.js';
+import { buildSetClause } from '../../shared/sql.js';
 
 const STORE_PRICE_COLUMNS = 'id, product_id, store_name, price, created_at, updated_at';
 
@@ -30,20 +31,15 @@ export async function findStorePriceById(id: number) {
 }
 
 export async function updateStorePrice(id: number, input: UpdateStorePriceInput) {
-  const columns: string[] = [];
-  const values: unknown[] = [];
-  const setField = (column: string, value: unknown) => {
-    values.push(value);
-    columns.push(`${column} = $${values.length}`);
-  };
-
-  if (input.store_name !== undefined) setField('store_name', input.store_name);
-  if (input.price !== undefined) setField('price', input.price);
-  setField('updated_at', new Date());
+  const { setClause, values } = buildSetClause({
+    store_name: input.store_name,
+    price: input.price,
+    updated_at: new Date(),
+  });
   values.push(id);
 
   const { rows } = await pool.query(
-    `UPDATE store_prices SET ${columns.join(', ')} WHERE id = $${values.length}
+    `UPDATE store_prices SET ${setClause} WHERE id = $${values.length}
      RETURNING ${STORE_PRICE_COLUMNS}`,
     values,
   );

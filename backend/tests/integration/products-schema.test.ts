@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { pool } from '../src/shared/db.js';
-import { resetDatabase } from './reset-db.js';
+import { pool } from '../../src/shared/db.js';
+import { resetDatabase } from '../reset-db.js';
 
 describe('products & store_prices schema', () => {
   beforeEach(async () => {
