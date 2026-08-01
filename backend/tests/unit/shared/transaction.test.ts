@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Pool, PoolClient } from 'pg';
-import { withTransaction } from '../src/shared/transaction.js';
+import { withTransaction } from '../../../src/shared/transaction.js';
 
 function fakePool(client: Partial<PoolClient>) {
   return { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;

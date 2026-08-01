@@ -5,6 +5,7 @@ import {
   updateProduct,
   type UpdateProductInput,
 } from '../../queries/products/index.js';
+import { hasProductUpdate } from './validation.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateProductInput }>,
@@ -13,14 +14,7 @@ export async function patch(
   const id = Number(request.params.id);
   const body = request.body;
 
-  const hasUpdate =
-    body.name !== undefined ||
-    body.other_names !== undefined ||
-    body.barcode !== undefined ||
-    body.sale_price !== undefined ||
-    body.selected_store_price_id !== undefined;
-
-  if (!hasUpdate) {
+  if (!hasProductUpdate(body)) {
     return reply.code(400).send({ error: 'No updatable fields provided' });
   }
 

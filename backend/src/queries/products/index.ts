@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/db.js';
+import { buildSetClause } from '../../shared/sql.js';
 import { withTransaction } from '../../shared/transaction.js';
 
 const UNIQUE_VIOLATION = '23505';
@@ -107,28 +108,17 @@ export async function createProduct(input: CreateProductInput): Promise<number> 
 }
 
 export async function updateProduct(id: number, input: UpdateProductInput): Promise<number> {
-  const columns: string[] = [];
-  const values: unknown[] = [];
-  const setField = (column: string, value: unknown) => {
-    values.push(value);
-    columns.push(`${column} = $${values.length}`);
-  };
-
-  if (input.name !== undefined) setField('name', input.name);
-  if (input.other_names !== undefined) setField('other_names', input.other_names);
-  if (input.barcode !== undefined) setField('barcode', input.barcode);
-  if (input.sale_price !== undefined) setField('sale_price', input.sale_price);
-  if (input.selected_store_price_id !== undefined) {
-    setField('selected_store_price_id', input.selected_store_price_id);
-  }
-
-  setField('updated_at', new Date());
+  const { setClause, values } = buildSetClause({
+    name: input.name,
+    other_names: input.other_names,
+    barcode: input.barcode,
+    sale_price: input.sale_price,
+    selected_store_price_id: input.selected_store_price_id,
+    updated_at: new Date(),
+  });
   values.push(id);
 
-  const { rowCount } = await pool.query(
-    `UPDATE products SET ${columns.join(', ')} WHERE id = $${values.length}`,
-    values,
-  );
+  const { rowCount } = await pool.query(`UPDATE products SET ${setClause} WHERE id = $${values.length}`, values);
   return rowCount ?? 0;
 }
 
