@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import productRoutes from './products/routes.js';
+import routes from './routes/index.js';
 
 export function buildApp() {
   const app = Fastify();
@@ -8,7 +8,7 @@ export function buildApp() {
     return { status: 'ok' };
   });
 
-  app.register(productRoutes);
+  app.register(routes);
 
   return app;
 }

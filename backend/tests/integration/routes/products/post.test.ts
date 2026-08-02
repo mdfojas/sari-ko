@@ -1,11 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { pool } from '../src/shared/db.js';
-import { resetDatabase } from './reset-db.js';
+import { app } from '../../../helpers.js';
+import { pool } from '../../../../src/shared/db.js';
+import { resetDatabase } from '../../../reset-db.js';
 
-const app = buildApp();
-
-describe('Products CRUD', () => {
+describe('POST /products', () => {
   beforeEach(async () => {
     await resetDatabase(pool);
   });
@@ -71,58 +69,5 @@ describe('Products CRUD', () => {
 
     const { rows } = await pool.query(`SELECT * FROM products WHERE name = 'Doomed Product'`);
     expect(rows).toHaveLength(0);
-  });
-
-  it('returns 409, not 500, when updating a barcode to one already in use', async () => {
-    await app.inject({
-      method: 'POST',
-      url: '/products',
-      payload: {
-        name: 'Product A',
-        barcode: '0123456789012',
-        store_prices: [{ store_name: 'Puregold', price: 1000, selected: true }],
-      },
-    });
-    const secondResponse = await app.inject({
-      method: 'POST',
-      url: '/products',
-      payload: {
-        name: 'Product B',
-        store_prices: [{ store_name: 'Puregold', price: 2000, selected: true }],
-      },
-    });
-    const productB = secondResponse.json();
-
-    const patchResponse = await app.inject({
-      method: 'PATCH',
-      url: `/products/${productB.id}`,
-      payload: { barcode: '0123456789012' },
-    });
-
-    expect(patchResponse.statusCode).toBe(409);
-  });
-
-  it('gets, lists, and deletes a product', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/products',
-      payload: {
-        name: 'Deletable Product',
-        store_prices: [{ store_name: 'Puregold', price: 1000, selected: true }],
-      },
-    });
-    const product = createResponse.json();
-
-    const getResponse = await app.inject({ method: 'GET', url: `/products/${product.id}` });
-    expect(getResponse.statusCode).toBe(200);
-
-    const listResponse = await app.inject({ method: 'GET', url: '/products' });
-    expect(listResponse.json()).toHaveLength(1);
-
-    const deleteResponse = await app.inject({ method: 'DELETE', url: `/products/${product.id}` });
-    expect(deleteResponse.statusCode).toBe(204);
-
-    const getAfterDelete = await app.inject({ method: 'GET', url: `/products/${product.id}` });
-    expect(getAfterDelete.statusCode).toBe(404);
   });
 });
