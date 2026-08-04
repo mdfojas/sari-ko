@@ -18,6 +18,8 @@ export default async function routes(app: FastifyInstance) {
   app.get('/persons', persons.list);
   app.post('/persons', persons.post);
   app.get<{ Querystring: { q?: string } }>('/persons/search', persons.search);
+  app.get<{ Params: { id: string } }>('/persons/:id/ledger', persons.ledger);
+  app.get<{ Params: { id: string } }>('/persons/:id/balance', persons.balance);
   app.get<{ Params: { id: string } }>('/persons/:id', persons.get);
   app.patch<{ Params: { id: string }; Body: UpdatePersonInput }>('/persons/:id', persons.patch);
   app.delete<{ Params: { id: string } }>('/persons/:id', persons.destroy);
@@ -32,6 +34,7 @@ export default async function routes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/persons/:id/payments', payments.listForPerson);
 
   app.get<{ Params: { id: string } }>('/loans/:id', loans.get);
+  app.get<{ Params: { id: string } }>('/loans/:id/history', loans.history);
   app.patch<{ Params: { id: string }; Body: UpdateLoanInput }>('/loans/:id', loans.patch);
   app.delete<{ Params: { id: string } }>('/loans/:id', loans.destroy);
 

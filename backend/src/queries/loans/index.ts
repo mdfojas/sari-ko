@@ -52,3 +52,22 @@ export async function deleteLoan(id: number): Promise<number> {
   const { rowCount } = await pool.query(`DELETE FROM loans WHERE id = $1`, [id]);
   return rowCount ?? 0;
 }
+
+// Line items that were later deleted no longer exist in loan_line_items, so
+// their ids can't be found by joining against that table. Instead, every
+// line item's 'create' audit entry always holds the full row snapshot
+// (including loan_id) — so scanning those snapshots reliably finds every
+// line-item id that ever belonged to this loan, deleted or not.
+export async function getHistoryForLoan(loanId: number) {
+  const { rows } = await pool.query(
+    `SELECT * FROM audit_log
+     WHERE (entity_type = 'loan' AND entity_id = $1)
+        OR (entity_type = 'loan_line_item' AND entity_id IN (
+          SELECT entity_id FROM audit_log
+          WHERE entity_type = 'loan_line_item' AND action = 'create' AND (changes ->> 'loan_id')::int = $1
+        ))
+     ORDER BY created_at`,
+    [loanId],
+  );
+  return rows;
+}
