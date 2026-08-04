@@ -4,12 +4,15 @@ import * as storePrices from './store-prices/index.js';
 import * as persons from './persons/index.js';
 import * as loans from './loans/index.js';
 import * as lineItems from './line-items/index.js';
+import * as payments from './payments/index.js';
 import type { UpdateProductInput } from '../queries/products/index.js';
 import type { UpdateStorePriceInput } from '../queries/store-prices/index.js';
 import type { UpdatePersonInput } from '../queries/persons/index.js';
 import type { CreateLoanInput, UpdateLoanInput } from '../queries/loans/index.js';
 import type { CreateLineItemInput, UpdateLineItemInput } from '../queries/line-items/index.js';
 import type { CreateStorePriceBody } from './store-prices/index.js';
+import type { CreatePaymentBody } from './payments/validation.js';
+import type { UpdatePaymentInput } from '../queries/payments/index.js';
 
 export default async function routes(app: FastifyInstance) {
   app.get('/persons', persons.list);
@@ -22,6 +25,11 @@ export default async function routes(app: FastifyInstance) {
     '/persons/:id/loans',
     loans.createForPerson,
   );
+  app.post<{ Params: { id: string }; Body: CreatePaymentBody }>(
+    '/persons/:id/payments',
+    payments.createForPerson,
+  );
+  app.get<{ Params: { id: string } }>('/persons/:id/payments', payments.listForPerson);
 
   app.get<{ Params: { id: string } }>('/loans/:id', loans.get);
   app.patch<{ Params: { id: string }; Body: UpdateLoanInput }>('/loans/:id', loans.patch);
@@ -35,6 +43,10 @@ export default async function routes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/line-items/:id', lineItems.get);
   app.patch<{ Params: { id: string }; Body: UpdateLineItemInput }>('/line-items/:id', lineItems.patch);
   app.delete<{ Params: { id: string } }>('/line-items/:id', lineItems.destroy);
+
+  app.get<{ Params: { id: string } }>('/payments/:id', payments.get);
+  app.patch<{ Params: { id: string }; Body: UpdatePaymentInput }>('/payments/:id', payments.patch);
+  app.delete<{ Params: { id: string } }>('/payments/:id', payments.destroy);
 
   app.get('/products', products.list);
   app.get<{ Querystring: { q?: string } }>('/products/search', products.search);
