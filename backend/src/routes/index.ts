@@ -1,11 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import * as products from './products/index.js';
 import * as storePrices from './store-prices/index.js';
+import * as persons from './persons/index.js';
 import type { UpdateProductInput } from '../queries/products/index.js';
 import type { UpdateStorePriceInput } from '../queries/store-prices/index.js';
+import type { UpdatePersonInput } from '../queries/persons/index.js';
 import type { CreateStorePriceBody } from './store-prices/index.js';
 
 export default async function routes(app: FastifyInstance) {
+  app.get('/persons', persons.list);
+  app.post('/persons', persons.post);
+  app.get<{ Querystring: { q?: string } }>('/persons/search', persons.search);
+  app.get<{ Params: { id: string } }>('/persons/:id', persons.get);
+  app.patch<{ Params: { id: string }; Body: UpdatePersonInput }>('/persons/:id', persons.patch);
+  app.delete<{ Params: { id: string } }>('/persons/:id', persons.destroy);
+
   app.get('/products', products.list);
   app.get<{ Querystring: { q?: string } }>('/products/search', products.search);
   app.get<{ Params: { code: string } }>('/products/barcode/:code', products.barcode.get);
