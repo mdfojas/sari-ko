@@ -21,7 +21,7 @@ async function createProduct() {
 
 describe('loans schema', () => {
   beforeEach(async () => {
-    await resetDatabase(pool);
+    await resetDatabase();
   });
 
   afterAll(async () => {
