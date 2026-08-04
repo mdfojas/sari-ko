@@ -5,7 +5,7 @@ import { resetDatabase } from '../../../reset-db.js';
 
 describe('GET /store-prices/:id', () => {
   beforeEach(async () => {
-    await resetDatabase(pool);
+    await resetDatabase();
   });
 
   afterAll(async () => {
