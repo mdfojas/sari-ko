@@ -74,6 +74,8 @@ export interface UpdateLineItemInput {
   amount?: number;
 }
 
+export class InvalidLineItemUpdateError extends Error {}
+
 // If this is a product-linked item and quantity is being edited, amount is
 // recomputed from the *existing* unit_price snapshot — the product's current
 // sale_price is never re-fetched, so an edit never silently repricing a loan.
@@ -81,10 +83,17 @@ export async function updateLineItem(id: number, input: UpdateLineItemInput) {
   const existing = await findLineItemById(id);
   if (!existing) return null;
 
-  const amount =
-    input.quantity !== undefined && existing.product_id !== null
-      ? input.quantity * existing.unit_price
-      : input.amount;
+  const isProductLinked = existing.product_id !== null;
+  if (isProductLinked && input.amount !== undefined) {
+    throw new InvalidLineItemUpdateError(
+      'amount cannot be set directly on a product-linked line item — edit quantity instead',
+    );
+  }
+  if (!isProductLinked && input.quantity !== undefined) {
+    throw new InvalidLineItemUpdateError('quantity cannot be set on a freeform line item');
+  }
+
+  const amount = isProductLinked && input.quantity !== undefined ? input.quantity * existing.unit_price : input.amount;
 
   const { setClause, values } = buildSetClause({
     description: input.description,

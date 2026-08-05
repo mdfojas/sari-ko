@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { deletePerson, isForeignKeyViolation } from '../../queries/persons/index.js';
+import { deletePerson } from '../../queries/persons/index.js';
+import { isForeignKeyViolation } from '../../shared/pg-errors.js';
 
 export async function destroy(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   try {

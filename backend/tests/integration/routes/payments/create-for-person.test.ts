@@ -53,4 +53,14 @@ describe('POST /persons/:id/payments', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it('returns 404, not 500, for a nonexistent person id', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/persons/999999/payments`,
+      payload: { amount: 500 },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
 });

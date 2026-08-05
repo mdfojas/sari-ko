@@ -1,5 +1,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { updateLineItem, type UpdateLineItemInput } from '../../queries/line-items/index.js';
+import {
+  InvalidLineItemUpdateError,
+  updateLineItem,
+  type UpdateLineItemInput,
+} from '../../queries/line-items/index.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateLineItemInput }>,
@@ -12,9 +16,16 @@ export async function patch(
     return reply.code(400).send({ error: 'No updatable fields provided' });
   }
 
-  const lineItem = await updateLineItem(id, body);
-  if (!lineItem) {
-    return reply.code(404).send({ error: 'Line item not found' });
+  try {
+    const lineItem = await updateLineItem(id, body);
+    if (!lineItem) {
+      return reply.code(404).send({ error: 'Line item not found' });
+    }
+    return lineItem;
+  } catch (err) {
+    if (err instanceof InvalidLineItemUpdateError) {
+      return reply.code(400).send({ error: err.message });
+    }
+    throw err;
   }
-  return lineItem;
 }
