@@ -8,8 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "migrate:create": "node-pg-migrate create -m db/migrations -j sql",
-    "migrate:up": "node-pg-migrate up -m db/migrations --envPath .env",
-    "migrate:down": "node-pg-migrate down -m db/migrations --envPath .env",
+    "migrate:up": "node-pg-migrate up -m db/migrations --envPath .env -d SUPERUSER_MIGRATIONS_DATABASE_URL",
+    "migrate:down": "node-pg-migrate down -m db/migrations --envPath .env -d SUPERUSER_MIGRATIONS_DATABASE_URL",
     "test": "vitest run"
   },
   "dependencies": {
