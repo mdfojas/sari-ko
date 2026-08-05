@@ -72,4 +72,14 @@ describe('POST /loans/:id/line-items', () => {
     expect(response.statusCode).toBe(201);
     expect(response.json().description).toBe('Kulang');
   });
+
+  it('returns 404, not 500, for a nonexistent loan id', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/loans/999999/line-items`,
+      payload: { description: 'Kulang', amount: 500 },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
 });

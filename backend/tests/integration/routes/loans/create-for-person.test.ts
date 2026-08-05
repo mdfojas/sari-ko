@@ -69,4 +69,29 @@ describe('POST /persons/:id/loans', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it('returns 404, not 500, for a nonexistent person id', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/persons/999999/loans`,
+      payload: { line_items: [{ description: 'Kulang', amount: 500 }] },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it('rejects a malformed line item (neither product-linked nor freeform) with 400, not 500', async () => {
+    const personId = await createPerson();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/persons/${personId}/loans`,
+      payload: { line_items: [{}] },
+    });
+
+    expect(response.statusCode).toBe(400);
+
+    const { rows } = await pool.query(`SELECT * FROM loans WHERE person_id = $1`, [personId]);
+    expect(rows).toHaveLength(0);
+  });
 });

@@ -49,12 +49,6 @@ export async function updatePerson(id: number, input: UpdatePersonInput) {
   return rows[0] ?? null;
 }
 
-const FOREIGN_KEY_VIOLATION = '23503';
-
-export function isForeignKeyViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === FOREIGN_KEY_VIOLATION;
-}
-
 export async function deletePerson(id: number): Promise<number> {
   const { rowCount } = await pool.query(`DELETE FROM persons WHERE id = $1`, [id]);
   return rowCount ?? 0;
