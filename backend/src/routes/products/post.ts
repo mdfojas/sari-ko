@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { createProduct, findProductById, isUniqueViolation } from '../../queries/products/index.js';
+import { createProduct, findProductById } from '../../queries/products/index.js';
+import { isUniqueViolation } from '../../shared/pg-errors.js';
 import { validateCreateProduct, type CreateProductBody } from './validation.js';
 
 export async function post(request: FastifyRequest<{ Body: CreateProductBody }>, reply: FastifyReply) {

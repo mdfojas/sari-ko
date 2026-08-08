@@ -1,10 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import {
-  findProductById,
-  isUniqueViolation,
-  updateProduct,
-  type UpdateProductInput,
-} from '../../queries/products/index.js';
+import { findProductById, updateProduct, type UpdateProductInput } from '../../queries/products/index.js';
+import { isUniqueViolation } from '../../shared/pg-errors.js';
 import { hasProductUpdate } from './validation.js';
 
 export async function patch(
