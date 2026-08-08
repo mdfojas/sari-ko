@@ -5,6 +5,7 @@ import * as persons from './persons/index.js';
 import * as loans from './loans/index.js';
 import * as lineItems from './line-items/index.js';
 import * as payments from './payments/index.js';
+import * as accounts from './accounts/index.js';
 import type { UpdateProductInput } from '../queries/products/index.js';
 import type { UpdateStorePriceInput } from '../queries/store-prices/index.js';
 import type { UpdatePersonInput } from '../queries/persons/index.js';
@@ -13,8 +14,23 @@ import type { CreateLineItemInput, UpdateLineItemInput } from '../queries/line-i
 import type { CreateStorePriceBody } from './store-prices/index.js';
 import type { CreatePaymentBody } from './payments/validation.js';
 import type { UpdatePaymentInput } from '../queries/payments/index.js';
+import type { CreateAccountBody } from './accounts/validation.js';
+import type { ResetPasswordBody } from './accounts/reset-password.js';
+import { requireAuth, requireRole } from '../shared/auth/guards.js';
+
+const manageAccounts = { preHandler: [requireAuth, requireRole('admin', 'store_owner')] };
 
 export default async function routes(app: FastifyInstance) {
+  app.post<{ Body: CreateAccountBody }>('/accounts', manageAccounts, accounts.post);
+  app.get('/accounts', manageAccounts, accounts.list);
+  app.get<{ Params: { id: string } }>('/accounts/:id', manageAccounts, accounts.get);
+  app.delete<{ Params: { id: string } }>('/accounts/:id', manageAccounts, accounts.destroy);
+  app.patch<{ Params: { id: string }; Body: ResetPasswordBody }>(
+    '/accounts/:id/password',
+    manageAccounts,
+    accounts.resetPassword,
+  );
+
   app.get('/persons', persons.list);
   app.post('/persons', persons.post);
   app.get<{ Querystring: { q?: string } }>('/persons/search', persons.search);
