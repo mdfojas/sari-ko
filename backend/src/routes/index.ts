@@ -24,12 +24,19 @@ import { requireAuth, requireRole } from '../shared/auth/guards.js';
 
 const manageAccounts = { preHandler: [requireAuth, requireRole('admin', 'store_owner')] };
 const authenticated = { preHandler: [requireAuth] };
+const customerOnly = { preHandler: [requireAuth, requireRole('customer')] };
 
 export default async function routes(app: FastifyInstance) {
   app.post<{ Body: LoginBody }>('/auth/login', auth.login);
   app.get('/me', authenticated, me.get);
   app.patch<{ Body: ChangePasswordBody }>('/me/password', authenticated, me.changePassword);
   app.patch<{ Body: ChangeUsernameBody }>('/me/username', authenticated, me.changeUsername);
+  app.get('/me/ledger', customerOnly, me.ledger);
+  app.get('/me/balance', customerOnly, me.balance);
+  app.get('/me/payments', customerOnly, me.payments);
+  app.get<{ Params: { id: string } }>('/me/loans/:id', customerOnly, me.loan);
+  app.get<{ Params: { id: string } }>('/me/loans/:id/line-items', customerOnly, me.loanLineItems);
+  app.get<{ Params: { id: string } }>('/me/loans/:id/history', customerOnly, me.loanHistory);
 
   app.post<{ Body: CreateAccountBody }>('/accounts', manageAccounts, accounts.post);
   app.get('/accounts', manageAccounts, accounts.list);

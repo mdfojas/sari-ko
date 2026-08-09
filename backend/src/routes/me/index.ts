@@ -1,3 +1,9 @@
 export { get } from './get.js';
 export { changePassword } from './change-password.js';
 export { changeUsername } from './change-username.js';
+export { ledger } from './ledger.js';
+export { balance } from './balance.js';
+export { payments } from './payments.js';
+export { loan } from './loan.js';
+export { loanLineItems } from './loan-line-items.js';
+export { loanHistory } from './loan-history.js';
