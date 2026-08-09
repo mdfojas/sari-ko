@@ -31,6 +31,11 @@ export async function findAccountById(id: number): Promise<Account | null> {
   return rows[0] ?? null;
 }
 
+export async function findAccountByUsername(username: string): Promise<Account | null> {
+  const { rows } = await pool.query(`SELECT * FROM accounts WHERE username = $1`, [username]);
+  return rows[0] ?? null;
+}
+
 export async function listAccounts(roles?: Role[]): Promise<Account[]> {
   if (roles) {
     const { rows } = await pool.query(`SELECT * FROM accounts WHERE role = ANY($1) ORDER BY id`, [roles]);
@@ -60,5 +65,13 @@ export async function updatePasswordHash(id: number, passwordHash: string): Prom
     `UPDATE accounts SET password_hash = $1, updated_at = now() WHERE id = $2`,
     [passwordHash, id],
   );
+  return rowCount ?? 0;
+}
+
+export async function updateUsername(id: number, username: string): Promise<number> {
+  const { rowCount } = await pool.query(`UPDATE accounts SET username = $1, updated_at = now() WHERE id = $2`, [
+    username,
+    id,
+  ]);
   return rowCount ?? 0;
 }
