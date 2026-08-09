@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createPerson } from '../../../helpers.js';
+import { app, authHeaderFor, createPerson } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -16,6 +16,7 @@ describe('POST /persons/:id/payments', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/payments`,
       payload: { amount: 1000, note: 'partial payment' },
@@ -29,6 +30,7 @@ describe('POST /persons/:id/payments', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/payments`,
       payload: { amount: 999999 },
@@ -41,6 +43,7 @@ describe('POST /persons/:id/payments', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/payments`,
       payload: { amount: 0 },
@@ -51,6 +54,7 @@ describe('POST /persons/:id/payments', () => {
 
   it('returns 404, not 500, for a nonexistent person id', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/999999/payments`,
       payload: { amount: 500 },

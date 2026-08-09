@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -19,6 +19,7 @@ describe('POST /products/:id/store-prices', () => {
     });
 
     const addResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/products/${product.id}/store-prices`,
       payload: { store_name: 'SM Supermarket', price: 1200 },
@@ -27,12 +28,13 @@ describe('POST /products/:id/store-prices', () => {
     expect(addResponse.statusCode).toBe(201);
     expect(addResponse.json().store_name).toBe('SM Supermarket');
 
-    const productAfter = await app.inject({ method: 'GET', url: `/products/${product.id}` });
+    const productAfter = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/products/${product.id}` });
     expect(productAfter.json().original_price).toBe(1000);
   });
 
   it('returns 404 when the product does not exist', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/products/999999/store-prices',
       payload: { store_name: 'Puregold', price: 1000 },

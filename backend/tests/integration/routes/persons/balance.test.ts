@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -21,11 +21,19 @@ describe('GET /persons/:id/balance', () => {
     ]);
     await pool.query(`INSERT INTO payments (person_id, amount) VALUES ($1, 400)`, [personId]);
 
-    const ledgerResponse = await app.inject({ method: 'GET', url: `/persons/${personId}/ledger` });
+    const ledgerResponse = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'GET',
+      url: `/persons/${personId}/ledger`,
+    });
     const ledger = ledgerResponse.json();
     const expectedBalance = ledger[ledger.length - 1].running_balance;
 
-    const balanceResponse = await app.inject({ method: 'GET', url: `/persons/${personId}/balance` });
+    const balanceResponse = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'GET',
+      url: `/persons/${personId}/balance`,
+    });
 
     expect(balanceResponse.statusCode).toBe(200);
     expect(balanceResponse.json().balance).toBe(expectedBalance);
@@ -35,7 +43,7 @@ describe('GET /persons/:id/balance', () => {
   it('returns 0 for a person with no history', async () => {
     const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('New Person') RETURNING id`);
 
-    const response = await app.inject({ method: 'GET', url: `/persons/${rows[0].id}/balance` });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/persons/${rows[0].id}/balance` });
 
     expect(response.json().balance).toBe(0);
   });
