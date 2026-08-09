@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -25,6 +25,7 @@ describe('PATCH /payments/:id', () => {
     const paymentId = await createPayment();
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/payments/${paymentId}`,
       payload: { amount: 750, note: 'corrected' },
@@ -37,7 +38,12 @@ describe('PATCH /payments/:id', () => {
   it('rejects updating amount to <= 0', async () => {
     const paymentId = await createPayment();
 
-    const response = await app.inject({ method: 'PATCH', url: `/payments/${paymentId}`, payload: { amount: 0 } });
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'PATCH',
+      url: `/payments/${paymentId}`,
+      payload: { amount: 0 },
+    });
 
     expect(response.statusCode).toBe(400);
   });

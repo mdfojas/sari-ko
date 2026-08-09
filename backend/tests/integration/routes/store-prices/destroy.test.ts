@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -18,13 +18,18 @@ describe('DELETE /store-prices/:id', () => {
       store_prices: [{ store_name: 'Puregold', price: 1000, selected: true }],
     });
     const addResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/products/${product.id}/store-prices`,
       payload: { store_name: 'SM Supermarket', price: 1200 },
     });
     const nonSelected = addResponse.json();
 
-    const deleteResponse = await app.inject({ method: 'DELETE', url: `/store-prices/${nonSelected.id}` });
+    const deleteResponse = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'DELETE',
+      url: `/store-prices/${nonSelected.id}`,
+    });
     expect(deleteResponse.statusCode).toBe(204);
   });
 
@@ -35,6 +40,7 @@ describe('DELETE /store-prices/:id', () => {
     });
 
     const deleteResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'DELETE',
       url: `/store-prices/${product.selected_store_price_id}`,
     });

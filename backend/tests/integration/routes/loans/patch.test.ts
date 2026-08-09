@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -24,6 +24,7 @@ describe('PATCH /loans/:id', () => {
     const loanId = await createPersonAndLoan();
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/loans/${loanId}`,
       payload: { note: 'Paid half already' },

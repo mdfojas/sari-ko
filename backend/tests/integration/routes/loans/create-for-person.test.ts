@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createPerson } from '../../../helpers.js';
+import { app, authHeaderFor, createPerson } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -20,6 +20,7 @@ describe('POST /persons/:id/loans', () => {
     const productId = productRows[0].id;
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: {
@@ -34,7 +35,7 @@ describe('POST /persons/:id/loans', () => {
     const loan = response.json();
     expect(loan.total).toBe(13500); // (2 * 6500) + 500
 
-    const getResponse = await app.inject({ method: 'GET', url: `/loans/${loan.id}` });
+    const getResponse = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loan.id}` });
     expect(getResponse.json().total).toBe(13500);
   });
 
@@ -42,6 +43,7 @@ describe('POST /persons/:id/loans', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [{ product_id: 999999, quantity: 1 }] },
@@ -57,6 +59,7 @@ describe('POST /persons/:id/loans', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [] },
@@ -67,6 +70,7 @@ describe('POST /persons/:id/loans', () => {
 
   it('returns 404, not 500, for a nonexistent person id', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/999999/loans`,
       payload: { line_items: [{ description: 'Kulang', amount: 500 }] },
@@ -79,6 +83,7 @@ describe('POST /persons/:id/loans', () => {
     const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [{}] },

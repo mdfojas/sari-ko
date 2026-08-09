@@ -11,7 +11,7 @@ export async function destroy(request: FastifyRequest<{ Params: { id: string } }
     return reply.code(204).send();
   } catch (err) {
     if (isForeignKeyViolation(err)) {
-      return reply.code(409).send({ error: 'Cannot delete a person with existing loans or payments' });
+      return reply.code(409).send({ error: 'Cannot delete a person with existing loans, payments, or a linked account' });
     }
     throw err;
   }

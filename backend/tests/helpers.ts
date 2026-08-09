@@ -5,7 +5,12 @@ import { signToken, type Role } from '../src/shared/auth/jwt.js';
 export const app = buildApp();
 
 export async function createProduct(payload: Record<string, unknown>) {
-  const response = await app.inject({ method: 'POST', url: '/products', payload });
+  const response = await app.inject({
+    method: 'POST',
+    url: '/products',
+    headers: authHeaderFor('admin'),
+    payload,
+  });
   return response.json();
 }
 

@@ -1,6 +1,8 @@
 import type { FastifyRequest } from 'fastify';
 import { searchProducts } from '../../queries/products/index.js';
+import { serializeProduct } from './serialize.js';
 
 export async function search(request: FastifyRequest<{ Querystring: { q?: string } }>) {
-  return searchProducts(request.query.q ?? '');
+  const products = await searchProducts(request.query.q ?? '');
+  return products.map((product) => serializeProduct(product, request.account!.role));
 }

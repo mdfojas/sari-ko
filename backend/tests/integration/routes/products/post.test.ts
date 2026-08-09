@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -14,6 +14,7 @@ describe('POST /products', () => {
 
   it('creates a product with store prices and resolves the selected price', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/products',
       payload: {
@@ -34,6 +35,7 @@ describe('POST /products', () => {
 
   it('rejects creating a product with no store prices', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/products',
       payload: { name: 'No Prices' },
@@ -44,6 +46,7 @@ describe('POST /products', () => {
 
   it('rejects creating a product with no store price marked selected', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/products',
       payload: {
@@ -57,6 +60,7 @@ describe('POST /products', () => {
 
   it('leaves no product row behind if the creation transaction fails partway', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/products',
       payload: {
