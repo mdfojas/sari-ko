@@ -1,12 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, authHeaderFor } from '../../../helpers.js';
+import { app, authHeaderFor, createPerson } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
-
-async function createPerson(name: string) {
-  const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ($1) RETURNING id`, [name]);
-  return rows[0].id;
-}
 
 describe('POST /accounts', () => {
   beforeEach(async () => {
@@ -131,7 +126,7 @@ describe('POST /accounts', () => {
 
     expect(response.statusCode).toBe(201);
     expect(typeof response.json().password).toBe('string');
-    expect(response.json().password.length).toBeGreaterThanOrEqual(8);
+    expect(response.json().password).toHaveLength(12);
   });
 
   it('rejects an explicit username that is already taken with 409', async () => {

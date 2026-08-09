@@ -1,20 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, authHeaderFor } from '../../../helpers.js';
+import { app, authHeaderFor, createAccount, createPerson } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
-
-async function createAccount(username: string, role: string, personId: number | null = null) {
-  await pool.query(`INSERT INTO accounts (username, password_hash, role, person_id) VALUES ($1, 'hash', $2, $3)`, [
-    username,
-    role,
-    personId,
-  ]);
-}
-
-async function createPerson(name: string) {
-  const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ($1) RETURNING id`, [name]);
-  return rows[0].id;
-}
 
 describe('GET /accounts', () => {
   beforeEach(async () => {
@@ -36,9 +23,9 @@ describe('GET /accounts', () => {
   });
 
   it('admin sees every account', async () => {
-    await createAccount('admin1', 'admin');
-    await createAccount('owner1', 'store_owner');
-    await createAccount('cust1', 'customer', await createPerson('Juan Dela Cruz'));
+    await createAccount({ username: 'admin1', role: 'admin' });
+    await createAccount({ username: 'owner1', role: 'store_owner' });
+    await createAccount({ username: 'cust1', role: 'customer', personId: await createPerson('Juan Dela Cruz') });
 
     const response = await app.inject({ method: 'GET', url: '/accounts', headers: authHeaderFor('admin') });
 
@@ -47,9 +34,9 @@ describe('GET /accounts', () => {
   });
 
   it('store_owner sees only customer accounts', async () => {
-    await createAccount('admin1', 'admin');
-    await createAccount('owner1', 'store_owner');
-    await createAccount('cust1', 'customer', await createPerson('Juan Dela Cruz'));
+    await createAccount({ username: 'admin1', role: 'admin' });
+    await createAccount({ username: 'owner1', role: 'store_owner' });
+    await createAccount({ username: 'cust1', role: 'customer', personId: await createPerson('Juan Dela Cruz') });
 
     const response = await app.inject({ method: 'GET', url: '/accounts', headers: authHeaderFor('store_owner') });
 
@@ -60,7 +47,7 @@ describe('GET /accounts', () => {
   });
 
   it('never includes password_hash', async () => {
-    await createAccount('admin1', 'admin');
+    await createAccount({ username: 'admin1', role: 'admin' });
 
     const response = await app.inject({ method: 'GET', url: '/accounts', headers: authHeaderFor('admin') });
 
