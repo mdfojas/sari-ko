@@ -1,13 +1,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createPayment, type CreatePaymentInput } from '../../queries/payments/index.js';
 import { isForeignKeyViolation } from '../../shared/pg-errors.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreatePayment, type CreatePaymentBody } from './validation.js';
 
 export async function createForPerson(
   request: FastifyRequest<{ Params: { id: string }; Body: CreatePaymentBody }>,
   reply: FastifyReply,
 ) {
-  const personId = Number(request.params.id);
+  const personId = requireIdParam(request.params.id, reply);
+  if (personId === null) return;
   const body = request.body;
 
   const validationError = validateCreatePayment(body);

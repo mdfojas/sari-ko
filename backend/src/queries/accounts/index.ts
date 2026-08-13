@@ -50,9 +50,9 @@ export async function listUsernames(): Promise<string[]> {
   return rows.map((row) => row.username);
 }
 
-export async function personHasAccount(personId: number): Promise<boolean> {
-  const { rows } = await pool.query(`SELECT 1 FROM accounts WHERE person_id = $1`, [personId]);
-  return rows.length > 0;
+export async function countAccountsByRole(role: Role): Promise<number> {
+  const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM accounts WHERE role = $1`, [role]);
+  return rows[0].count;
 }
 
 export async function deleteAccount(id: number): Promise<number> {

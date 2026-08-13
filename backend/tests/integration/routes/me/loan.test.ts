@@ -40,6 +40,19 @@ describe('GET /me/loans/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('returns 400, not a raw 500, for a non-numeric loan id', async () => {
+    const personId = await createPerson('Juan');
+    const accountId = await createAccount({ username: 'juan', role: 'customer', personId });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/me/loans/abc',
+      headers: authHeaderFor('customer', { accountId, personId, username: 'juan' }),
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it('returns 403, not the data, for a loan belonging to a different person', async () => {
     const ownPersonId = await createPerson('Juan');
     const accountId = await createAccount({ username: 'juan', role: 'customer', personId: ownPersonId });

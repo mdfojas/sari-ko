@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, validatePasswordStrength, verifyPassword } from '../../../../src/shared/auth/password.js';
+import {
+  hashPassword,
+  passwordStrengthMessage,
+  validatePasswordStrength,
+  verifyPassword,
+} from '../../../../src/shared/auth/password.js';
 
 describe('hashPassword / verifyPassword', () => {
   it('produces a different hash on repeated calls for the same input', async () => {
@@ -27,8 +32,23 @@ describe('validatePasswordStrength', () => {
     expect(validatePasswordStrength('short1')).toBe(false);
   });
 
-  it('accepts an 8+ character password regardless of composition', () => {
-    expect(validatePasswordStrength('alllowercase')).toBe(true);
+  it('rejects passwords over 16 characters', () => {
+    expect(validatePasswordStrength('a'.repeat(17))).toBe(false);
+  });
+
+  it('accepts passwords between 8 and 16 characters (inclusive), regardless of composition', () => {
     expect(validatePasswordStrength('12345678')).toBe(true);
+    expect(validatePasswordStrength('a'.repeat(16))).toBe(true);
+    expect(validatePasswordStrength('alllowercase')).toBe(true);
+  });
+});
+
+describe('passwordStrengthMessage', () => {
+  it('defaults to describing the "password" field', () => {
+    expect(passwordStrengthMessage()).toBe('password must be between 8 and 16 characters');
+  });
+
+  it('accepts a custom field name', () => {
+    expect(passwordStrengthMessage('newPassword')).toBe('newPassword must be between 8 and 16 characters');
   });
 });

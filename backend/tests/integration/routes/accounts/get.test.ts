@@ -17,6 +17,11 @@ describe('GET /accounts/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('returns 400, not a raw 500, for a non-numeric id', async () => {
+    const response = await app.inject({ method: 'GET', url: '/accounts/abc', headers: authHeaderFor('admin') });
+    expect(response.statusCode).toBe(400);
+  });
+
   it('admin can fetch any account', async () => {
     const id = await createAccount({ username: 'admin1', role: 'admin' });
 

@@ -40,6 +40,11 @@ describe('GET /persons/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('returns 400, not a raw 500, for a non-numeric id', async () => {
+    const response = await app.inject({ method: 'GET', url: '/persons/abc', headers: authHeaderFor('admin') });
+    expect(response.statusCode).toBe(400);
+  });
+
   it('returns has_account: false for a person with no linked account', async () => {
     const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('Juan Dela Cruz') RETURNING id`);
 

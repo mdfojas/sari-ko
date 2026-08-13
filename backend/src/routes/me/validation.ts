@@ -1,4 +1,4 @@
-import { validatePasswordStrength } from '../../shared/auth/password.js';
+import { passwordStrengthMessage, validatePasswordStrength } from '../../shared/auth/password.js';
 
 export interface ChangePasswordBody {
   currentPassword?: string;
@@ -10,7 +10,7 @@ export function validateChangePassword(body: ChangePasswordBody): string | null 
     return 'currentPassword and newPassword are required';
   }
   if (!validatePasswordStrength(body.newPassword)) {
-    return 'newPassword must be at least 8 characters';
+    return passwordStrengthMessage('newPassword');
   }
   return null;
 }

@@ -4,12 +4,14 @@ import {
   updateLineItem,
   type UpdateLineItemInput,
 } from '../../queries/line-items/index.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateLineItemInput }>,
   reply: FastifyReply,
 ) {
-  const id = Number(request.params.id);
+  const id = requireIdParam(request.params.id, reply);
+  if (id === null) return;
   const body = request.body;
 
   if (body.description === undefined && body.quantity === undefined && body.amount === undefined) {

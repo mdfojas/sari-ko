@@ -1,5 +1,8 @@
+const FALLBACK_BASE = 'customer';
+
 export function generateUsername(name: string, existingUsernames: string[]): string {
-  const base = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const stripped = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const base = stripped || FALLBACK_BASE;
   const existing = new Set(existingUsernames);
 
   if (!existing.has(base)) return base;

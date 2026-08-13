@@ -18,4 +18,12 @@ describe('generateUsername', () => {
   it('keeps incrementing the suffix past multiple collisions', () => {
     expect(generateUsername('Jerico', ['jerico', 'jerico2'])).toBe('jerico3');
   });
+
+  it('falls back to a generic base when the name has no ASCII alphanumeric characters', () => {
+    expect(generateUsername('こんにちは', [])).toBe('customer');
+  });
+
+  it('suffixes the fallback base on collision, same as any other name', () => {
+    expect(generateUsername('こんにちは', ['customer'])).toBe('customer2');
+  });
 });
