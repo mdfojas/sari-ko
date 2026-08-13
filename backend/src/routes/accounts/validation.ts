@@ -1,4 +1,4 @@
-import { validatePasswordStrength } from '../../shared/auth/password.js';
+import { passwordStrengthMessage, validatePasswordStrength } from '../../shared/auth/password.js';
 import type { Role } from '../../shared/auth/jwt.js';
 
 const VALID_ROLES: Role[] = ['admin', 'store_owner', 'customer'];
@@ -28,7 +28,7 @@ export function validateCreateAccount(body: CreateAccountBody): string | null {
   }
 
   if (body.password !== undefined && !validatePasswordStrength(body.password)) {
-    return 'password must be at least 8 characters';
+    return passwordStrengthMessage();
   }
 
   return null;

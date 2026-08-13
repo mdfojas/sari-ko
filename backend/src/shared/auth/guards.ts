@@ -11,6 +11,17 @@ declare module 'fastify' {
   interface FastifyRequest {
     account?: AuthenticatedAccount;
   }
+  interface FastifyContextConfig {
+    public?: boolean;
+  }
+}
+
+// A route opts out of the global default-deny auth hook (see app.ts) only by
+// explicitly setting `{ config: { public: true } }` — an omission (a new
+// route registered with no preHandler at all) now defaults to "requires
+// auth," not "wide open."
+export function isPublicRoute(request: FastifyRequest): boolean {
+  return request.routeOptions?.config?.public === true;
 }
 
 function extractBearerToken(header: string | undefined): string | undefined {

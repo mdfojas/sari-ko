@@ -17,7 +17,10 @@ export async function listPersons() {
 }
 
 export async function searchPersons(q: string) {
-  const { rows } = await pool.query(`SELECT * FROM persons WHERE name ILIKE '%' || $1 || '%' ORDER BY id`, [q]);
+  const { rows } = await pool.query(
+    `${HAS_ACCOUNT_SELECT} WHERE p.name ILIKE '%' || $1 || '%' ORDER BY p.id`,
+    [q],
+  );
   return rows;
 }
 

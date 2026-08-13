@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createLoanForPerson, findLoanById, type CreateLoanInput } from '../../queries/loans/index.js';
 import { ProductNotFoundError } from '../../queries/line-items/index.js';
 import { isForeignKeyViolation } from '../../shared/pg-errors.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreateLoan } from './validation.js';
 import { validateCreateLineItem } from '../line-items/validation.js';
 
@@ -9,7 +10,8 @@ export async function createForPerson(
   request: FastifyRequest<{ Params: { id: string }; Body: Partial<CreateLoanInput> }>,
   reply: FastifyReply,
 ) {
-  const personId = Number(request.params.id);
+  const personId = requireIdParam(request.params.id, reply);
+  if (personId === null) return;
   const body = request.body;
 
   const validationError = validateCreateLoan(body);

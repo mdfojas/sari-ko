@@ -23,4 +23,18 @@ describe('GET /persons/search', () => {
     expect(results).toHaveLength(1);
     expect(results[0].name).toBe('Juan Dela Cruz');
   });
+
+  it('includes has_account, same as GET /persons/:id', async () => {
+    const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('Juan Dela Cruz') RETURNING id`);
+
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'GET',
+      url: '/persons/search?q=dela',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()[0].has_account).toBe(false);
+    expect(response.json()[0].id).toBe(rows[0].id);
+  });
 });

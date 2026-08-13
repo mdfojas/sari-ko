@@ -56,4 +56,27 @@ describe('DELETE /accounts/:id', () => {
 
     expect(response.statusCode).toBe(403);
   });
+
+  it('refuses to delete the only remaining admin account, even by an admin', async () => {
+    const id = await createAccount({ username: 'admin1', role: 'admin' });
+
+    const response = await app.inject({ method: 'DELETE', url: `/accounts/${id}`, headers: authHeaderFor('admin') });
+
+    expect(response.statusCode).toBe(409);
+    const { rows } = await pool.query(`SELECT * FROM accounts WHERE id = $1`, [id]);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('allows deleting an admin account when another admin still exists', async () => {
+    await createAccount({ username: 'admin1', role: 'admin' });
+    const secondAdminId = await createAccount({ username: 'admin2', role: 'admin' });
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/accounts/${secondAdminId}`,
+      headers: authHeaderFor('admin'),
+    });
+
+    expect(response.statusCode).toBe(204);
+  });
 });

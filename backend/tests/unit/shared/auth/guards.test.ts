@@ -1,10 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { requireAuth, requireRole } from '../../../../src/shared/auth/guards.js';
+import { isPublicRoute, requireAuth, requireRole } from '../../../../src/shared/auth/guards.js';
 import { signToken } from '../../../../src/shared/auth/jwt.js';
 
-function fakeRequest(headers: Record<string, string> = {}) {
-  return { headers, account: undefined } as unknown as FastifyRequest & {
+function fakeRequest(headers: Record<string, string> = {}, routeConfig: Record<string, unknown> = {}) {
+  return {
+    headers,
+    account: undefined,
+    routeOptions: { config: routeConfig },
+  } as unknown as FastifyRequest & {
     account?: { id: number; role: string; personId: number | null };
   };
 }
@@ -74,5 +78,22 @@ describe('requireRole', () => {
     await requireRole('admin', 'store_owner')(request, reply);
 
     expect(state.statusCode).toBe(403);
+  });
+});
+
+describe('isPublicRoute', () => {
+  it('returns true when the route config marks it public', () => {
+    const request = fakeRequest({}, { public: true });
+    expect(isPublicRoute(request)).toBe(true);
+  });
+
+  it('returns false when the route config does not mark it public', () => {
+    const request = fakeRequest({}, {});
+    expect(isPublicRoute(request)).toBe(false);
+  });
+
+  it('returns false when there is no route config at all', () => {
+    const request = { headers: {} } as unknown as FastifyRequest;
+    expect(isPublicRoute(request)).toBe(false);
   });
 });

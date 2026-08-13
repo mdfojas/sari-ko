@@ -22,17 +22,25 @@ import type { CreateAccountBody } from './accounts/validation.js';
 import type { ResetPasswordBody } from './accounts/reset-password.js';
 import type { LoginBody } from './auth/validation.js';
 import type { ChangePasswordBody, ChangeUsernameBody } from './me/validation.js';
-import { requireAuth, requireRole } from '../shared/auth/guards.js';
+import { requireRole } from '../shared/auth/guards.js';
+import { shapeProductResponse } from './products/serialize.js';
 
-const manageAccounts = { preHandler: [requireAuth, requireRole('admin', 'store_owner')] };
-const authenticated = { preHandler: [requireAuth] };
-const customerOnly = { preHandler: [requireAuth, requireRole('customer')] };
+// requireAuth is applied globally in app.ts's onRequest hook — these only
+// need to add role restrictions on top of it. Routes with no option object
+// below still require auth (any role); only `{ config: { public: true } }`
+// opts out of it entirely.
+const manageAccounts = { preHandler: [requireRole('admin', 'store_owner')] };
+const customerOnly = { preHandler: [requireRole('customer')] };
+const publicRoute = { config: { public: true } };
+// Applied once here instead of every product-read handler calling
+// serializeProduct on its own way out.
+const productRead = { preSerialization: shapeProductResponse };
 
 export default async function routes(app: FastifyInstance) {
-  app.post<{ Body: LoginBody }>('/auth/login', auth.login);
-  app.get('/me', authenticated, me.get);
-  app.patch<{ Body: ChangePasswordBody }>('/me/password', authenticated, me.changePassword);
-  app.patch<{ Body: ChangeUsernameBody }>('/me/username', authenticated, me.changeUsername);
+  app.post<{ Body: LoginBody }>('/auth/login', publicRoute, auth.login);
+  app.get('/me', me.get);
+  app.patch<{ Body: ChangePasswordBody }>('/me/password', me.changePassword);
+  app.patch<{ Body: ChangeUsernameBody }>('/me/username', me.changeUsername);
   app.get('/me/ledger', customerOnly, me.ledger);
   app.get('/me/balance', customerOnly, me.balance);
   app.get('/me/payments', customerOnly, me.payments);
@@ -93,15 +101,15 @@ export default async function routes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: UpdatePaymentInput }>('/payments/:id', manageAccounts, payments.patch);
   app.delete<{ Params: { id: string } }>('/payments/:id', manageAccounts, payments.destroy);
 
-  app.get('/products', authenticated, products.list);
-  app.get<{ Querystring: { q?: string } }>('/products/search', authenticated, products.search);
-  app.get<{ Params: { code: string } }>('/products/barcode/:code', authenticated, products.barcode.get);
+  app.get('/products', productRead, products.list);
+  app.get<{ Querystring: { q?: string } }>('/products/search', productRead, products.search);
+  app.get<{ Params: { code: string } }>('/products/barcode/:code', productRead, products.barcode.get);
   app.get<{ Params: { code: string } }>(
     '/products/barcode/:code/store-prices',
     manageAccounts,
     products.barcode.storePrices,
   );
-  app.get<{ Params: { id: string } }>('/products/:id', authenticated, products.get);
+  app.get<{ Params: { id: string } }>('/products/:id', productRead, products.get);
   app.post<{ Body: CreateProductBody }>('/products', manageAccounts, products.post);
   app.patch<{ Params: { id: string }; Body: UpdateProductInput }>('/products/:id', manageAccounts, products.patch);
   app.delete<{ Params: { id: string } }>('/products/:id', manageAccounts, products.destroy);

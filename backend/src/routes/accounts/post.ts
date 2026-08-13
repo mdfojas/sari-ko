@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { createAccount, listUsernames, personHasAccount } from '../../queries/accounts/index.js';
+import { createAccount, listUsernames } from '../../queries/accounts/index.js';
 import { findPersonById } from '../../queries/persons/index.js';
 import { generateRandomPassword, hashPassword } from '../../shared/auth/password.js';
 import { generateUsername } from '../../shared/auth/username.js';
@@ -28,7 +28,7 @@ export async function post(request: FastifyRequest<{ Body: CreateAccountBody }>,
     if (!person) {
       return reply.code(400).send({ error: 'person_id does not reference an existing person' });
     }
-    if (await personHasAccount(person.id)) {
+    if (person.has_account) {
       return reply.code(409).send({ error: 'This person already has an account' });
     }
     if (!username) {

@@ -90,6 +90,23 @@ describe('PATCH /me/password', () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('rejects a newPassword over 16 characters', async () => {
+    const id = await createAccount({
+      username: 'owner1',
+      role: 'store_owner',
+      passwordHash: await hashPassword('correct-horse'),
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/me/password',
+      headers: authHeaderFor('store_owner', { accountId: id, username: 'owner1' }),
+      payload: { currentPassword: 'correct-horse', newPassword: 'a'.repeat(17) },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it('works identically for a customer account', async () => {
     const id = await createAccount({
       username: 'juan',

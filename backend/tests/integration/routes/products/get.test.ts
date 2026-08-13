@@ -38,6 +38,11 @@ describe('GET /products/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('returns 400, not a raw 500, for a non-numeric id', async () => {
+    const response = await app.inject({ method: 'GET', url: '/products/abc', headers: authHeaderFor('admin') });
+    expect(response.statusCode).toBe(400);
+  });
+
   it('omits store-price fields for a customer, keeping sale_price', async () => {
     const product = await createProduct({
       name: 'Fetchable Product',

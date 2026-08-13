@@ -1,8 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { deleteLineItem, isLastRemainingLineItem } from '../../queries/line-items/index.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 
 export async function destroy(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-  const id = Number(request.params.id);
+  const id = requireIdParam(request.params.id, reply);
+  if (id === null) return;
 
   if (await isLastRemainingLineItem(id)) {
     return reply

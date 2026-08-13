@@ -1,16 +1,15 @@
-import { findLoanById } from '../../queries/loans/index.js';
+export type OwnershipCheckResult = { ok: true } | { ok: false; status: 404 | 403 };
 
-type Loan = NonNullable<Awaited<ReturnType<typeof findLoanById>>>;
-
-export type LoanOwnershipResult = { ok: true; loan: Loan } | { ok: false; status: 404 | 403 };
-
-export async function resolveOwnedLoan(loanId: number, personId: number): Promise<LoanOwnershipResult> {
-  const loan = await findLoanById(loanId);
-  if (!loan) {
+// Pure decision logic, separate from fetching — callers fetch whatever data
+// they actually need (the full loan for `GET /me/loans/:id`, or just the
+// owning person_id for the line-items/history bridges, which don't need the
+// full loan's SUM subquery) and pass just the owner id in here.
+export function checkLoanOwnership(actualPersonId: number | null, callerPersonId: number): OwnershipCheckResult {
+  if (actualPersonId === null) {
     return { ok: false, status: 404 };
   }
-  if (loan.person_id !== personId) {
+  if (actualPersonId !== callerPersonId) {
     return { ok: false, status: 403 };
   }
-  return { ok: true, loan };
+  return { ok: true };
 }
