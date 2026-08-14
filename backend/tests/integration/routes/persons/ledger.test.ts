@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -51,7 +51,7 @@ describe('GET /persons/:id/ledger', () => {
       [personId],
     );
 
-    const response = await app.inject({ method: 'GET', url: `/persons/${personId}/ledger` });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/persons/${personId}/ledger` });
 
     expect(response.statusCode).toBe(200);
     const balances = response.json().map((entry: { running_balance: number }) => entry.running_balance);

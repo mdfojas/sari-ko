@@ -6,18 +6,26 @@ export interface CreatePersonInput {
   contact?: string | null;
 }
 
+const HAS_ACCOUNT_SELECT = `
+  SELECT p.*, EXISTS (SELECT 1 FROM accounts a WHERE a.person_id = p.id) AS has_account
+  FROM persons p
+`;
+
 export async function listPersons() {
-  const { rows } = await pool.query(`SELECT * FROM persons ORDER BY id`);
+  const { rows } = await pool.query(`${HAS_ACCOUNT_SELECT} ORDER BY p.id`);
   return rows;
 }
 
 export async function searchPersons(q: string) {
-  const { rows } = await pool.query(`SELECT * FROM persons WHERE name ILIKE '%' || $1 || '%' ORDER BY id`, [q]);
+  const { rows } = await pool.query(
+    `${HAS_ACCOUNT_SELECT} WHERE p.name ILIKE '%' || $1 || '%' ORDER BY p.id`,
+    [q],
+  );
   return rows;
 }
 
 export async function findPersonById(id: number) {
-  const { rows } = await pool.query(`SELECT * FROM persons WHERE id = $1`, [id]);
+  const { rows } = await pool.query(`${HAS_ACCOUNT_SELECT} WHERE p.id = $1`, [id]);
   return rows[0] ?? null;
 }
 

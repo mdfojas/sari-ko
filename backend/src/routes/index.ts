@@ -5,6 +5,9 @@ import * as persons from './persons/index.js';
 import * as loans from './loans/index.js';
 import * as lineItems from './line-items/index.js';
 import * as payments from './payments/index.js';
+import * as accounts from './accounts/index.js';
+import * as auth from './auth/index.js';
+import * as me from './me/index.js';
 import type { UpdateProductInput } from '../queries/products/index.js';
 import type { UpdateStorePriceInput } from '../queries/store-prices/index.js';
 import type { UpdatePersonInput } from '../queries/persons/index.js';
@@ -13,59 +16,115 @@ import type { CreateLineItemInput, UpdateLineItemInput } from '../queries/line-i
 import type { CreateStorePriceBody } from './store-prices/index.js';
 import type { CreatePaymentBody } from './payments/validation.js';
 import type { UpdatePaymentInput } from '../queries/payments/index.js';
+import type { CreatePersonBody } from './persons/validation.js';
+import type { CreateProductBody } from './products/validation.js';
+import type { CreateAccountBody } from './accounts/validation.js';
+import type { ResetPasswordBody } from './accounts/reset-password.js';
+import type { LoginBody } from './auth/validation.js';
+import type { ChangePasswordBody, ChangeUsernameBody } from './me/validation.js';
+import { requireRole } from '../shared/auth/guards.js';
+import { shapeProductResponse } from './products/serialize.js';
+
+// requireAuth is applied globally in app.ts's onRequest hook — these only
+// need to add role restrictions on top of it. Routes with no option object
+// below still require auth (any role); only `{ config: { public: true } }`
+// opts out of it entirely.
+const manageAccounts = { preHandler: [requireRole('admin', 'store_owner')] };
+const customerOnly = { preHandler: [requireRole('customer')] };
+const publicRoute = { config: { public: true } };
+// Applied once here instead of every product-read handler calling
+// serializeProduct on its own way out.
+const productRead = { preSerialization: shapeProductResponse };
 
 export default async function routes(app: FastifyInstance) {
-  app.get('/persons', persons.list);
-  app.post('/persons', persons.post);
-  app.get<{ Querystring: { q?: string } }>('/persons/search', persons.search);
-  app.get<{ Params: { id: string } }>('/persons/:id/ledger', persons.ledger);
-  app.get<{ Params: { id: string } }>('/persons/:id/balance', persons.balance);
-  app.get<{ Params: { id: string } }>('/persons/:id', persons.get);
-  app.patch<{ Params: { id: string }; Body: UpdatePersonInput }>('/persons/:id', persons.patch);
-  app.delete<{ Params: { id: string } }>('/persons/:id', persons.destroy);
+  app.post<{ Body: LoginBody }>('/auth/login', publicRoute, auth.login);
+  app.get('/me', me.get);
+  app.patch<{ Body: ChangePasswordBody }>('/me/password', me.changePassword);
+  app.patch<{ Body: ChangeUsernameBody }>('/me/username', me.changeUsername);
+  app.get('/me/ledger', customerOnly, me.ledger);
+  app.get('/me/balance', customerOnly, me.balance);
+  app.get('/me/payments', customerOnly, me.payments);
+  app.get<{ Params: { id: string } }>('/me/loans/:id', customerOnly, me.loan);
+  app.get<{ Params: { id: string } }>('/me/loans/:id/line-items', customerOnly, me.loanLineItems);
+  app.get<{ Params: { id: string } }>('/me/loans/:id/history', customerOnly, me.loanHistory);
+
+  app.post<{ Body: CreateAccountBody }>('/accounts', manageAccounts, accounts.post);
+  app.get('/accounts', manageAccounts, accounts.list);
+  app.get<{ Params: { id: string } }>('/accounts/:id', manageAccounts, accounts.get);
+  app.delete<{ Params: { id: string } }>('/accounts/:id', manageAccounts, accounts.destroy);
+  app.patch<{ Params: { id: string }; Body: ResetPasswordBody }>(
+    '/accounts/:id/password',
+    manageAccounts,
+    accounts.resetPassword,
+  );
+
+  app.get('/persons', manageAccounts, persons.list);
+  app.post<{ Body: CreatePersonBody }>('/persons', manageAccounts, persons.post);
+  app.get<{ Querystring: { q?: string } }>('/persons/search', manageAccounts, persons.search);
+  app.get<{ Params: { id: string } }>('/persons/:id/ledger', manageAccounts, persons.ledger);
+  app.get<{ Params: { id: string } }>('/persons/:id/balance', manageAccounts, persons.balance);
+  app.get<{ Params: { id: string } }>('/persons/:id', manageAccounts, persons.get);
+  app.patch<{ Params: { id: string }; Body: UpdatePersonInput }>('/persons/:id', manageAccounts, persons.patch);
+  app.delete<{ Params: { id: string } }>('/persons/:id', manageAccounts, persons.destroy);
   app.post<{ Params: { id: string }; Body: Partial<CreateLoanInput> }>(
     '/persons/:id/loans',
+    manageAccounts,
     loans.createForPerson,
   );
   app.post<{ Params: { id: string }; Body: CreatePaymentBody }>(
     '/persons/:id/payments',
+    manageAccounts,
     payments.createForPerson,
   );
-  app.get<{ Params: { id: string } }>('/persons/:id/payments', payments.listForPerson);
+  app.get<{ Params: { id: string } }>('/persons/:id/payments', manageAccounts, payments.listForPerson);
 
-  app.get<{ Params: { id: string } }>('/loans/:id', loans.get);
-  app.get<{ Params: { id: string } }>('/loans/:id/history', loans.history);
-  app.patch<{ Params: { id: string }; Body: UpdateLoanInput }>('/loans/:id', loans.patch);
-  app.delete<{ Params: { id: string } }>('/loans/:id', loans.destroy);
+  app.get<{ Params: { id: string } }>('/loans/:id', manageAccounts, loans.get);
+  app.get<{ Params: { id: string } }>('/loans/:id/history', manageAccounts, loans.history);
+  app.patch<{ Params: { id: string }; Body: UpdateLoanInput }>('/loans/:id', manageAccounts, loans.patch);
+  app.delete<{ Params: { id: string } }>('/loans/:id', manageAccounts, loans.destroy);
 
-  app.get<{ Params: { id: string } }>('/loans/:id/line-items', lineItems.listForLoan);
+  app.get<{ Params: { id: string } }>('/loans/:id/line-items', manageAccounts, lineItems.listForLoan);
   app.post<{ Params: { id: string }; Body: Partial<CreateLineItemInput> }>(
     '/loans/:id/line-items',
+    manageAccounts,
     lineItems.createForLoan,
   );
-  app.get<{ Params: { id: string } }>('/line-items/:id', lineItems.get);
-  app.patch<{ Params: { id: string }; Body: UpdateLineItemInput }>('/line-items/:id', lineItems.patch);
-  app.delete<{ Params: { id: string } }>('/line-items/:id', lineItems.destroy);
+  app.get<{ Params: { id: string } }>('/line-items/:id', manageAccounts, lineItems.get);
+  app.patch<{ Params: { id: string }; Body: UpdateLineItemInput }>(
+    '/line-items/:id',
+    manageAccounts,
+    lineItems.patch,
+  );
+  app.delete<{ Params: { id: string } }>('/line-items/:id', manageAccounts, lineItems.destroy);
 
-  app.get<{ Params: { id: string } }>('/payments/:id', payments.get);
-  app.patch<{ Params: { id: string }; Body: UpdatePaymentInput }>('/payments/:id', payments.patch);
-  app.delete<{ Params: { id: string } }>('/payments/:id', payments.destroy);
+  app.get<{ Params: { id: string } }>('/payments/:id', manageAccounts, payments.get);
+  app.patch<{ Params: { id: string }; Body: UpdatePaymentInput }>('/payments/:id', manageAccounts, payments.patch);
+  app.delete<{ Params: { id: string } }>('/payments/:id', manageAccounts, payments.destroy);
 
-  app.get('/products', products.list);
-  app.get<{ Querystring: { q?: string } }>('/products/search', products.search);
-  app.get<{ Params: { code: string } }>('/products/barcode/:code', products.barcode.get);
-  app.get<{ Params: { code: string } }>('/products/barcode/:code/store-prices', products.barcode.storePrices);
-  app.get<{ Params: { id: string } }>('/products/:id', products.get);
-  app.post('/products', products.post);
-  app.patch<{ Params: { id: string }; Body: UpdateProductInput }>('/products/:id', products.patch);
-  app.delete<{ Params: { id: string } }>('/products/:id', products.destroy);
+  app.get('/products', productRead, products.list);
+  app.get<{ Querystring: { q?: string } }>('/products/search', productRead, products.search);
+  app.get<{ Params: { code: string } }>('/products/barcode/:code', productRead, products.barcode.get);
+  app.get<{ Params: { code: string } }>(
+    '/products/barcode/:code/store-prices',
+    manageAccounts,
+    products.barcode.storePrices,
+  );
+  app.get<{ Params: { id: string } }>('/products/:id', productRead, products.get);
+  app.post<{ Body: CreateProductBody }>('/products', manageAccounts, products.post);
+  app.patch<{ Params: { id: string }; Body: UpdateProductInput }>('/products/:id', manageAccounts, products.patch);
+  app.delete<{ Params: { id: string } }>('/products/:id', manageAccounts, products.destroy);
 
-  app.get<{ Params: { id: string } }>('/products/:id/store-prices', storePrices.listForProduct);
+  app.get<{ Params: { id: string } }>('/products/:id/store-prices', manageAccounts, storePrices.listForProduct);
   app.post<{ Params: { id: string }; Body: CreateStorePriceBody }>(
     '/products/:id/store-prices',
+    manageAccounts,
     storePrices.createForProduct,
   );
-  app.get<{ Params: { id: string } }>('/store-prices/:id', storePrices.get);
-  app.patch<{ Params: { id: string }; Body: UpdateStorePriceInput }>('/store-prices/:id', storePrices.patch);
-  app.delete<{ Params: { id: string } }>('/store-prices/:id', storePrices.destroy);
+  app.get<{ Params: { id: string } }>('/store-prices/:id', manageAccounts, storePrices.get);
+  app.patch<{ Params: { id: string }; Body: UpdateStorePriceInput }>(
+    '/store-prices/:id',
+    manageAccounts,
+    storePrices.patch,
+  );
+  app.delete<{ Params: { id: string } }>('/store-prices/:id', manageAccounts, storePrices.destroy);
 }

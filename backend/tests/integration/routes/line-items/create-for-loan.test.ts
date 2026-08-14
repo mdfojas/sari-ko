@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -28,6 +28,7 @@ describe('POST /loans/:id/line-items', () => {
     const productId = productRows[0].id;
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/loans/${loanId}/line-items`,
       payload: { product_id: productId, quantity: 3 },
@@ -47,6 +48,7 @@ describe('POST /loans/:id/line-items', () => {
     const productId = productRows[0].id;
 
     const createResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/loans/${loanId}/line-items`,
       payload: { product_id: productId, quantity: 2 },
@@ -55,7 +57,7 @@ describe('POST /loans/:id/line-items', () => {
 
     await pool.query(`UPDATE products SET sale_price = 9999 WHERE id = $1`, [productId]);
 
-    const getResponse = await app.inject({ method: 'GET', url: `/line-items/${item.id}` });
+    const getResponse = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/line-items/${item.id}` });
     expect(getResponse.json().unit_price).toBe(6500);
     expect(getResponse.json().amount).toBe(13000);
   });
@@ -64,6 +66,7 @@ describe('POST /loans/:id/line-items', () => {
     const loanId = await createLoan();
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/loans/${loanId}/line-items`,
       payload: { description: 'Kulang', amount: 500 },
@@ -75,6 +78,7 @@ describe('POST /loans/:id/line-items', () => {
 
   it('returns 404, not 500, for a nonexistent loan id', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/loans/999999/line-items`,
       payload: { description: 'Kulang', amount: 500 },

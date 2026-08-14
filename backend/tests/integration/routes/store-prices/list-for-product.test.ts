@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -21,7 +21,11 @@ describe('GET /products/:id/store-prices', () => {
       ],
     });
 
-    const response = await app.inject({ method: 'GET', url: `/products/${product.id}/store-prices` });
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'GET',
+      url: `/products/${product.id}/store-prices`,
+    });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toHaveLength(2);

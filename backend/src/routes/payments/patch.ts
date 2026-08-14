@@ -1,12 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { updatePayment, type UpdatePaymentInput } from '../../queries/payments/index.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateUpdatePayment } from './validation.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdatePaymentInput }>,
   reply: FastifyReply,
 ) {
-  const id = Number(request.params.id);
+  const id = requireIdParam(request.params.id, reply);
+  if (id === null) return;
   const body = request.body;
 
   const validationError = validateUpdatePayment(body);

@@ -1,13 +1,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { findProductById } from '../../queries/products/index.js';
 import { createStorePrice } from '../../queries/store-prices/index.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreateStorePrice, type CreateStorePriceBody } from './validation.js';
 
 export async function createForProduct(
   request: FastifyRequest<{ Params: { id: string }; Body: CreateStorePriceBody }>,
   reply: FastifyReply,
 ) {
-  const productId = Number(request.params.id);
+  const productId = requireIdParam(request.params.id, reply);
+  if (productId === null) return;
   const body = request.body;
 
   const validationError = validateCreateStorePrice(body);

@@ -1,17 +1,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import {
-  findProductById,
-  isUniqueViolation,
-  updateProduct,
-  type UpdateProductInput,
-} from '../../queries/products/index.js';
+import { findProductById, updateProduct, type UpdateProductInput } from '../../queries/products/index.js';
+import { isUniqueViolation } from '../../shared/pg-errors.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { hasProductUpdate } from './validation.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateProductInput }>,
   reply: FastifyReply,
 ) {
-  const id = Number(request.params.id);
+  const id = requireIdParam(request.params.id, reply);
+  if (id === null) return;
   const body = request.body;
 
   if (!hasProductUpdate(body)) {

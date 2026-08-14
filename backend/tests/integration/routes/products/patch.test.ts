@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -24,6 +24,7 @@ describe('PATCH /products/:id', () => {
     });
 
     const patchResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/products/${productB.id}`,
       payload: { barcode: '0123456789012' },
