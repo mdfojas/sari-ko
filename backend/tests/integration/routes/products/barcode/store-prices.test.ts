@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../../helpers.js';
 import { pool } from '../../../../../src/shared/db.js';
 import { resetDatabase } from '../../../../reset-db.js';
 
@@ -24,6 +24,7 @@ describe('GET /products/barcode/:code/store-prices', () => {
     });
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'GET',
       url: '/products/barcode/9999999999999/store-prices',
     });
@@ -36,6 +37,7 @@ describe('GET /products/barcode/:code/store-prices', () => {
 
   it('returns 404 from the store-prices barcode lookup for an unknown barcode', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'GET',
       url: '/products/barcode/00000000000000/store-prices',
     });

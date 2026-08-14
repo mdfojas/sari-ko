@@ -1,7 +1,10 @@
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { getBalanceForPerson } from '../../queries/persons/index.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 
-export async function balance(request: FastifyRequest<{ Params: { id: string } }>) {
-  const balance = await getBalanceForPerson(Number(request.params.id));
+export async function balance(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  const id = requireIdParam(request.params.id, reply);
+  if (id === null) return;
+  const balance = await getBalanceForPerson(id);
   return { balance };
 }

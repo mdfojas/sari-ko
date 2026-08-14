@@ -24,6 +24,14 @@ export async function findLoanById(id: number) {
   return rows[0] ?? null;
 }
 
+// Cheap ownership check with no SUM subquery — for callers that only need
+// to know who owns the loan (not the loan itself), so they don't pay for
+// LOAN_SELECT's aggregate just to throw the result away.
+export async function findLoanOwnerId(id: number): Promise<number | null> {
+  const { rows } = await pool.query(`SELECT person_id FROM loans WHERE id = $1`, [id]);
+  return rows[0]?.person_id ?? null;
+}
+
 export async function createLoanForPerson(personId: number, input: CreateLoanInput): Promise<number> {
   return withTransaction(pool, async (client: PoolClient) => {
     const { rows } = await client.query(`INSERT INTO loans (person_id, note) VALUES ($1, $2) RETURNING id`, [

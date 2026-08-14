@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -28,6 +28,7 @@ describe('PATCH /line-items/:id', () => {
     );
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/line-items/${itemRows[0].id}`,
       payload: { quantity: 7 },
@@ -55,6 +56,7 @@ describe('PATCH /line-items/:id', () => {
     );
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/line-items/${itemRows[0].id}`,
       payload: { amount: 99999 },
@@ -85,6 +87,7 @@ describe('PATCH /line-items/:id', () => {
     await pool.query(`UPDATE products SET sale_price = 9999 WHERE id = $1`, [productId]);
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/line-items/${lineItemId}`,
       payload: { quantity: 3 },

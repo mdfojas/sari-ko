@@ -1,11 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../../src/shared/db.js';
 import { resetDatabase } from '../reset-db.js';
-
-async function createPerson() {
-  const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('Test Person') RETURNING id`);
-  return rows[0].id;
-}
+import { createPerson } from '../helpers.js';
 
 async function createLoan(personId: number) {
   const { rows } = await pool.query(`INSERT INTO loans (person_id) VALUES ($1) RETURNING id`, [personId]);

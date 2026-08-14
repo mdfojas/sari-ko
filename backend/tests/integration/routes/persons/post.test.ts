@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -14,6 +14,7 @@ describe('POST /persons', () => {
 
   it('creates a person with name and optional contact', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: '/persons',
       payload: { name: 'Juan Dela Cruz', contact: '09171234567' },
@@ -26,7 +27,7 @@ describe('POST /persons', () => {
   });
 
   it('rejects creating a person without a name', async () => {
-    const response = await app.inject({ method: 'POST', url: '/persons', payload: {} });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'POST', url: '/persons', payload: {} });
     expect(response.statusCode).toBe(400);
   });
 });

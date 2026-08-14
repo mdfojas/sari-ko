@@ -1,12 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor, createPerson } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
-
-async function createPerson() {
-  const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('Juan Dela Cruz') RETURNING id`);
-  return rows[0].id;
-}
 
 describe('POST /persons/:id/loans', () => {
   beforeEach(async () => {
@@ -18,13 +13,14 @@ describe('POST /persons/:id/loans', () => {
   });
 
   it('creates a loan with a product-linked item and a freeform item, resolving the correct total', async () => {
-    const personId = await createPerson();
+    const personId = await createPerson('Juan Dela Cruz');
     const { rows: productRows } = await pool.query(
       `INSERT INTO products (name, sale_price) VALUES ('Coke 1.5L', 6500) RETURNING id`,
     );
     const productId = productRows[0].id;
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: {
@@ -39,14 +35,15 @@ describe('POST /persons/:id/loans', () => {
     const loan = response.json();
     expect(loan.total).toBe(13500); // (2 * 6500) + 500
 
-    const getResponse = await app.inject({ method: 'GET', url: `/loans/${loan.id}` });
+    const getResponse = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loan.id}` });
     expect(getResponse.json().total).toBe(13500);
   });
 
   it('leaves no loan row behind if the creation transaction fails partway', async () => {
-    const personId = await createPerson();
+    const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [{ product_id: 999999, quantity: 1 }] },
@@ -59,9 +56,10 @@ describe('POST /persons/:id/loans', () => {
   });
 
   it('rejects creating a loan with zero line items', async () => {
-    const personId = await createPerson();
+    const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [] },
@@ -72,6 +70,7 @@ describe('POST /persons/:id/loans', () => {
 
   it('returns 404, not 500, for a nonexistent person id', async () => {
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/999999/loans`,
       payload: { line_items: [{ description: 'Kulang', amount: 500 }] },
@@ -81,9 +80,10 @@ describe('POST /persons/:id/loans', () => {
   });
 
   it('rejects a malformed line item (neither product-linked nor freeform) with 400, not 500', async () => {
-    const personId = await createPerson();
+    const personId = await createPerson('Juan Dela Cruz');
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'POST',
       url: `/persons/${personId}/loans`,
       payload: { line_items: [{}] },

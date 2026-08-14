@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app, createProduct } from '../../../helpers.js';
+import { app, authHeaderFor, createProduct } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -19,6 +19,7 @@ describe('PATCH /store-prices/:id', () => {
     });
 
     const patchResponse = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/store-prices/${product.selected_store_price_id}`,
       payload: { price: 1300 },
@@ -35,6 +36,7 @@ describe('PATCH /store-prices/:id', () => {
     });
 
     const response = await app.inject({
+      headers: authHeaderFor('admin'),
       method: 'PATCH',
       url: `/store-prices/${product.selected_store_price_id}`,
       payload: {},

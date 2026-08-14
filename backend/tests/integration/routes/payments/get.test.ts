@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -19,14 +19,14 @@ describe('GET /payments/:id', () => {
       [personRows[0].id],
     );
 
-    const response = await app.inject({ method: 'GET', url: `/payments/${paymentRows[0].id}` });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/payments/${paymentRows[0].id}` });
 
     expect(response.statusCode).toBe(200);
     expect(response.json().amount).toBe(500);
   });
 
   it('returns 404 for an unknown payment id', async () => {
-    const response = await app.inject({ method: 'GET', url: '/payments/999999' });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: '/payments/999999' });
     expect(response.statusCode).toBe(404);
   });
 });

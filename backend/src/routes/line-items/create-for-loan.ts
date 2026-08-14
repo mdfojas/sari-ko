@@ -2,13 +2,15 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { insertLineItem, ProductNotFoundError, type CreateLineItemInput } from '../../queries/line-items/index.js';
 import { pool } from '../../shared/db.js';
 import { isForeignKeyViolation } from '../../shared/pg-errors.js';
+import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreateLineItem } from './validation.js';
 
 export async function createForLoan(
   request: FastifyRequest<{ Params: { id: string }; Body: Partial<CreateLineItemInput> }>,
   reply: FastifyReply,
 ) {
-  const loanId = Number(request.params.id);
+  const loanId = requireIdParam(request.params.id, reply);
+  if (loanId === null) return;
   const body = request.body;
 
   const validationError = validateCreateLineItem(body);

@@ -3,12 +3,6 @@ import { pool } from '../../shared/db.js';
 import { buildSetClause } from '../../shared/sql.js';
 import { withTransaction } from '../../shared/transaction.js';
 
-const UNIQUE_VIOLATION = '23505';
-
-export function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === UNIQUE_VIOLATION;
-}
-
 const PRODUCT_SELECT = `
   SELECT
     p.id, p.name, p.other_names, p.barcode, p.sale_price, p.selected_store_price_id,

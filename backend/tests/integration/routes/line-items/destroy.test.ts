@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -28,12 +28,30 @@ describe('DELETE /line-items/:id', () => {
     await pool.end();
   });
 
+  it('rejects a request with no auth', async () => {
+    const response = await app.inject({ method: 'DELETE', url: '/line-items/1' });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('rejects a customer with 403', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/line-items/1',
+      headers: authHeaderFor('customer'),
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
   it('deletes one of several line items normally', async () => {
     const loanId = await createLoan();
     const itemId = await addLineItem(loanId, 500);
     await addLineItem(loanId, 300);
 
-    const response = await app.inject({ method: 'DELETE', url: `/line-items/${itemId}` });
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/line-items/${itemId}`,
+      headers: authHeaderFor('admin'),
+    });
 
     expect(response.statusCode).toBe(204);
   });
@@ -42,7 +60,11 @@ describe('DELETE /line-items/:id', () => {
     const loanId = await createLoan();
     const itemId = await addLineItem(loanId, 500);
 
-    const response = await app.inject({ method: 'DELETE', url: `/line-items/${itemId}` });
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/line-items/${itemId}`,
+      headers: authHeaderFor('admin'),
+    });
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error).toMatch(/DELETE \/loans/i);

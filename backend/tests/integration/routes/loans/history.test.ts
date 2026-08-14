@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { app } from '../../../helpers.js';
+import { app, authHeaderFor } from '../../../helpers.js';
 import { pool } from '../../../../src/shared/db.js';
 import { resetDatabase } from '../../../reset-db.js';
 
@@ -27,7 +27,7 @@ describe('GET /loans/:id/history', () => {
     await pool.query(`UPDATE loans SET note = 'Edited note' WHERE id = $1`, [loanId]);
     await pool.query(`UPDATE loan_line_items SET amount = 1000 WHERE id = $1`, [lineItemId]);
 
-    const response = await app.inject({ method: 'GET', url: `/loans/${loanId}/history` });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}/history` });
 
     expect(response.statusCode).toBe(200);
     const entries = response.json();
@@ -57,7 +57,7 @@ describe('GET /loans/:id/history', () => {
     ]);
     await pool.query(`DELETE FROM loan_line_items WHERE id = $1`, [itemRows[0].id]);
 
-    const response = await app.inject({ method: 'GET', url: `/loans/${loanId}/history` });
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}/history` });
 
     const entries = response.json();
     const deleteEntry = entries.find(
