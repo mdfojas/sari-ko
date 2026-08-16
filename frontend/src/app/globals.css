@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Palette ported verbatim from the approved mockup (mockups/dashboard.html) */
+@theme {
+  --color-bg: #f4f5f5;
+  --color-card: #ffffff;
+  --color-border: #dde0e0;
+  --color-text: #23262a;
+  --color-text-muted: #878787;
+  --color-sidebar: #2b2e30;
+  --color-sidebar-active: #3a3d3f;
+  --color-accent: #05ad98;
+  --color-accent-dark: #048a79;
+  --color-accent-light: #e3f5f2;
+  --color-success: #2f8f5f;
+  --color-success-light: #e5f3ec;
+  --color-danger: #c0463b;
+  --color-danger-light: #fbeae8;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}

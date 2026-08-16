@@ -1,9 +1,21 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import routes from './routes/index.js';
 import { isPublicRoute, requireAuth } from './shared/auth/guards.js';
 
+function allowedOrigins(): string[] {
+  return (process.env.FRONTEND_ORIGIN ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export function buildApp() {
   const app = Fastify();
+
+  // Registered before the auth hook below so CORS preflight (OPTIONS)
+  // requests are answered directly and never reach requireAuth.
+  app.register(cors, { origin: allowedOrigins() });
 
   // Default-deny: every route requires auth unless it explicitly opts out
   // via `{ config: { public: true } }`. This means a future route added
