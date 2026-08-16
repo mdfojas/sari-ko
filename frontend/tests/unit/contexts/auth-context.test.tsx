@@ -3,11 +3,12 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { fetchCurrentUser, loginRequest } from '@/lib/auth-client';
 import { clearToken, getToken, setToken } from '@/lib/token-storage';
+import { ApiError } from '@/lib/api-client';
 
-const push = vi.fn();
+const replace = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ replace }),
 }));
 vi.mock('@/lib/auth-client', () => ({
   loginRequest: vi.fn(),
@@ -52,15 +53,30 @@ describe('AuthProvider', () => {
     expect(result.current.user).toEqual(user);
   });
 
-  test('clears the token if hydration fails (expired/invalid token)', async () => {
+  test('clears the token when hydration fails with a real 401 (expired/invalid token)', async () => {
     (getToken as ReturnType<typeof vi.fn>).mockReturnValue('stale-token');
-    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('401'));
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new ApiError(401, { error: 'invalid token' })
+    );
 
     const { result } = renderAuth();
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.user).toBeNull();
     expect(clearToken).toHaveBeenCalled();
+  });
+
+  test('does not clear the token when hydration fails with a transient error (network/cold-start timeout)', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue('still-valid-token');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('Request timed out after 120000ms')
+    );
+
+    const { result } = renderAuth();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(clearToken).not.toHaveBeenCalled();
   });
 
   test('login stores the token, sets the user, and navigates to the role landing page', async () => {
@@ -78,7 +94,7 @@ describe('AuthProvider', () => {
 
     expect(setToken).toHaveBeenCalledWith('new-jwt');
     expect(result.current.user).toEqual(user);
-    expect(push).toHaveBeenCalledWith('/my-ledger');
+    expect(replace).toHaveBeenCalledWith('/my-ledger');
   });
 
   test('login propagates a failure without storing a token or setting a user', async () => {
@@ -98,6 +114,29 @@ describe('AuthProvider', () => {
     expect(result.current.user).toBeNull();
   });
 
+  test('login clears the token and rethrows if fetching the account fails after a successful password check', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (loginRequest as ReturnType<typeof vi.fn>).mockResolvedValue('new-jwt');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network blip'));
+
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await expect(
+      act(async () => {
+        await result.current.login('juan1', 'secret123');
+      })
+    ).rejects.toThrow('network blip');
+
+    // setToken was called (the password check genuinely succeeded), but the
+    // login attempt as a whole didn't complete — no token should be left
+    // behind, or a reload would see a token with no way to attribute it to
+    // a user, and the caller has no way to know the password was correct.
+    expect(clearToken).toHaveBeenCalled();
+    expect(result.current.user).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   test('logout clears the token, clears the user, and navigates to /login', async () => {
     (getToken as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
@@ -110,7 +149,7 @@ describe('AuthProvider', () => {
 
     expect(clearToken).toHaveBeenCalled();
     expect(result.current.user).toBeNull();
-    expect(push).toHaveBeenCalledWith('/login');
+    expect(replace).toHaveBeenCalledWith('/login');
   });
 
   test('useAuth throws when used outside an AuthProvider', () => {
