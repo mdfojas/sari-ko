@@ -3,7 +3,9 @@ export function peso(centavos: number): string {
 }
 
 export function pesosToCentavos(input: string): number {
-  const isNegative = input.trim().startsWith('-');
+  // Checked anywhere in the string, not just at the start — peso()'s own
+  // output puts the minus sign after the currency symbol ("₱-5.50").
+  const isNegative = input.includes('-');
   // Strip everything but digits and the decimal point — tolerates raw typed
   // input ("21.25") as well as peso()'s own formatted output ("₱1,234.56"),
   // and drops the sign so it can be handled explicitly below (parseInt("-0")

@@ -36,6 +36,13 @@ describe('pesosToCentavos', () => {
   test('parses its own peso() output back to the original centavos (round-trip)', () => {
     expect(pesosToCentavos(peso(123456))).toBe(123456);
   });
+
+  test('parses its own peso() output for a negative amount (round-trip)', () => {
+    // peso() puts the minus sign after the currency symbol ("₱-5.50"), not
+    // before it — a sign check that only looks at the start of the string
+    // misses it.
+    expect(pesosToCentavos(peso(-123456))).toBe(-123456);
+  });
 });
 
 describe('peso', () => {
