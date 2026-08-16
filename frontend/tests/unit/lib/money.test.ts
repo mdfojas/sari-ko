@@ -22,6 +22,20 @@ describe('pesosToCentavos', () => {
   test('treats a blank string as zero', () => {
     expect(pesosToCentavos('')).toBe(0);
   });
+
+  test('preserves the sign on a negative amount with cents', () => {
+    expect(pesosToCentavos('-5.50')).toBe(-550);
+  });
+
+  test('preserves the sign on a negative amount under one peso', () => {
+    // parseInt("-0", 10) is -0, which is falsy — a naive `|| 0` fallback
+    // silently drops the sign here if it's not handled explicitly.
+    expect(pesosToCentavos('-0.50')).toBe(-50);
+  });
+
+  test('parses its own peso() output back to the original centavos (round-trip)', () => {
+    expect(pesosToCentavos(peso(123456))).toBe(123456);
+  });
 });
 
 describe('peso', () => {
