@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { landingPathForRole, LOGIN_PATH } from '@/lib/auth-types';
+import { useRequireAuth, useRedirectIfAuthenticated } from '@/hooks/use-auth-guards';
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+  // Together these cover both directions: unauthenticated -> /login,
+  // authenticated -> the role's landing page.
+  useRequireAuth();
+  useRedirectIfAuthenticated();
+  const { isLoading } = useAuth();
 
-  useEffect(() => {
-    if (isLoading) return;
-    router.replace(user ? landingPathForRole(user.role) : LOGIN_PATH);
-  }, [isLoading, user, router]);
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center text-text-muted">
+        Loading…
+      </main>
+    );
+  }
 
   return null;
 }

@@ -3,14 +3,19 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRedirectIfAuthenticated } from '@/hooks/use-auth-guards';
+import { ApiError } from '@/lib/api-client';
 
 export default function LoginPage() {
   useRedirectIfAuthenticated();
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isLoading || user) {
+    return null;
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -18,10 +23,18 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(username, password);
-    } catch {
-      // Deliberately generic — never reveal whether the username existed,
-      // matching the backend's timing-safe login design.
-      setError('Invalid username or password.');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // Deliberately generic for any auth-rejection status — never reveal
+        // whether the username existed, matching the backend's timing-safe
+        // login design.
+        setError('Invalid username or password.');
+      } else {
+        // Distinct from the above: a network/timeout/server error is not
+        // the same as wrong credentials, and conflating them makes a
+        // backend outage indistinguishable from a typo.
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

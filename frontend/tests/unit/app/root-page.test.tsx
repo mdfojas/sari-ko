@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import HomePage from '@/app/page';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -17,6 +17,12 @@ describe('HomePage', () => {
     (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, isLoading: true });
     render(<HomePage />);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  test('shows a loading indicator instead of a blank page while auth is still loading', () => {
+    (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, isLoading: true });
+    render(<HomePage />);
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
 
   test('redirects to /login when not authenticated', () => {
