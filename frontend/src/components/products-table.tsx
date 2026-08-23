@@ -44,7 +44,7 @@ export function ProductsTable({ products, exactBarcodeMatchId, onEdit, onDelete 
             </td>
             <td className="px-4 py-3 font-semibold tabular-nums text-text">{peso(product.sale_price)}</td>
             <td className="px-4 py-3 tabular-nums text-text-muted">
-              {product.original_price !== null ? peso(product.original_price) : <span>—</span>}
+              {typeof product.original_price === 'number' ? peso(product.original_price) : <span>—</span>}
             </td>
             <td className="px-4 py-3 text-text-muted">{product.selected_store_name ?? '—'}</td>
             <td className="px-4 py-3">

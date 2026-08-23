@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { useRequireRole } from '@/hooks/use-auth-guards';
-import type { Role } from '@/lib/auth-types';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { ROUTE_ACCESS } from '@/lib/route-access';
 import { TopbarSlot } from '@/components/topbar-slot';
 import { BarcodeScannerButton } from '@/components/barcode-scanner-button';
 import { ProductsTable } from '@/components/products-table';
@@ -23,7 +24,8 @@ import {
 } from '@/lib/products-client';
 
 const RESULT_LIMIT = 5;
-const ALLOWED_ROLES: Role[] = ['admin', 'store_owner'];
+const ALLOWED_ROLES = ROUTE_ACCESS['/products'];
+const SEARCH_DEBOUNCE_MS = 300;
 
 const FILTER_LABELS: Record<ProductFilter, string> = {
   all: 'All',
@@ -48,10 +50,18 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['products', searchText],
-    queryFn: () => resolveProductSearch(searchText),
+  const debouncedSearchText = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS);
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error: searchError,
+  } = useQuery({
+    queryKey: ['products', debouncedSearchText],
+    queryFn: () => resolveProductSearch(debouncedSearchText),
   });
 
   const matches = data?.matches ?? [];
@@ -88,7 +98,9 @@ export default function ProductsPage() {
     onSuccess: () => {
       invalidate();
       setDeletingProduct(null);
+      setDeleteError(null);
     },
+    onError: (err: unknown) => setDeleteError(extractErrorMessage(err)),
   });
 
   function handleSearchChange(value: string) {
@@ -148,12 +160,19 @@ export default function ProductsPage() {
       <div className="rounded-lg border border-border bg-card">
         {isLoading ? (
           <p className="p-6 text-center text-sm text-text-muted">Loading…</p>
+        ) : isError ? (
+          <p role="alert" className="p-6 text-center text-sm text-danger">
+            {extractErrorMessage(searchError)}
+          </p>
         ) : (
           <ProductsTable
             products={shown}
             exactBarcodeMatchId={exact?.id}
             onEdit={setEditingProduct}
-            onDelete={setDeletingProduct}
+            onDelete={(product) => {
+              setDeletingProduct(product);
+              setDeleteError(null);
+            }}
           />
         )}
         {filtered.length > shown.length && (
@@ -178,6 +197,7 @@ export default function ProductsPage() {
             setFormError(null);
           }}
           error={formError}
+          isSaving={createMutation.isPending || updateMutation.isPending}
         />
       )}
 
@@ -186,8 +206,13 @@ export default function ProductsPage() {
           title="Delete this product?"
           body={`"${deletingProduct.name}" and its store-price entries will be removed. This cannot be undone.`}
           confirmLabel="Delete Product"
+          error={deleteError}
+          isConfirming={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(deletingProduct.id)}
-          onCancel={() => setDeletingProduct(null)}
+          onCancel={() => {
+            setDeletingProduct(null);
+            setDeleteError(null);
+          }}
         />
       )}
     </>

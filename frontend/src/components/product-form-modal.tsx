@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { pesosToCentavos } from '@/lib/money';
 import { listDistinctStoreNames } from '@/lib/store-prices-client';
 import { BarcodeScannerButton } from '@/components/barcode-scanner-button';
+import { Modal } from '@/components/modal';
 import type { CreateProductInput, Product, UpdateProductInput } from '@/lib/products-client';
 
 interface ProductFormModalProps {
@@ -12,9 +13,10 @@ interface ProductFormModalProps {
   onSave: (input: CreateProductInput | UpdateProductInput) => void;
   onClose: () => void;
   error?: string | null;
+  isSaving?: boolean;
 }
 
-export function ProductFormModal({ product, onSave, onClose, error }: ProductFormModalProps) {
+export function ProductFormModal({ product, onSave, onClose, error, isSaving = false }: ProductFormModalProps) {
   const isEdit = Boolean(product);
   const [name, setName] = useState(product?.name ?? '');
   const [barcode, setBarcode] = useState(product?.barcode ?? '');
@@ -31,6 +33,7 @@ export function ProductFormModal({ product, onSave, onClose, error }: ProductFor
   });
 
   function handleSubmit() {
+    if (isSaving) return;
     if (!name.trim()) {
       setValidationError('Name is required.');
       return;
@@ -74,128 +77,124 @@ export function ProductFormModal({ product, onSave, onClose, error }: ProductFor
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={isEdit ? 'Edit product' : 'Add product'}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    >
-      <div className="w-96 rounded-lg bg-card p-6">
-        <h3 className="mb-4 text-base font-bold text-text">{isEdit ? 'Edit product' : 'Add product'}</h3>
+    <Modal ariaLabel={isEdit ? 'Edit product' : 'Add product'}>
+      <h3 className="mb-4 text-base font-bold text-text">{isEdit ? 'Edit product' : 'Add product'}</h3>
 
-        {(validationError || error) && (
-          <p role="alert" className="mb-4 text-sm text-danger">
-            {validationError || error}
-          </p>
-        )}
+      {(validationError || error) && (
+        <p role="alert" className="mb-4 text-sm text-danger">
+          {validationError || error}
+        </p>
+      )}
 
-        <div className="mb-3">
-          <label htmlFor="pf-name" className="mb-1 block text-xs font-semibold text-text-muted">
-            Name
-          </label>
+      <div className="mb-3">
+        <label htmlFor="pf-name" className="mb-1 block text-xs font-semibold text-text-muted">
+          Name
+        </label>
+        <input
+          id="pf-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-border px-3 py-2 text-sm text-text"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="pf-barcode" className="mb-1 block text-xs font-semibold text-text-muted">
+          Barcode
+        </label>
+        <div className="flex gap-2">
           <input
-            id="pf-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            id="pf-barcode"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            placeholder="leave blank if none"
             className="w-full rounded border border-border px-3 py-2 text-sm text-text"
           />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="pf-barcode" className="mb-1 block text-xs font-semibold text-text-muted">
-            Barcode
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="pf-barcode"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder="leave blank if none"
-              className="w-full rounded border border-border px-3 py-2 text-sm text-text"
-            />
-            <BarcodeScannerButton onScan={setBarcode} />
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="pf-aliases" className="mb-1 block text-xs font-semibold text-text-muted">
-            Aliases (comma-separated)
-          </label>
-          <input
-            id="pf-aliases"
-            value={aliases}
-            onChange={(e) => setAliases(e.target.value)}
-            className="w-full rounded border border-border px-3 py-2 text-sm text-text"
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="pf-sale-price" className="mb-1 block text-xs font-semibold text-text-muted">
-            Sale price (₱)
-          </label>
-          <input
-            id="pf-sale-price"
-            value={salePrice}
-            onChange={(e) => setSalePrice(e.target.value)}
-            placeholder="e.g. 21.25"
-            className="w-full rounded border border-border px-3 py-2 text-sm text-text"
-          />
-        </div>
-
-        {!isEdit && (
-          <>
-            <div className="mb-3">
-              <label htmlFor="pf-store-name" className="mb-1 block text-xs font-semibold text-text-muted">
-                Initial store price — store name
-              </label>
-              <input
-                id="pf-store-name"
-                list="pf-store-name-options"
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                placeholder="pick an existing store or type a new one"
-                className="w-full rounded border border-border px-3 py-2 text-sm text-text"
-              />
-              <datalist id="pf-store-name-options">
-                {knownStoreNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-              <p className="mt-1 text-xs text-text-muted">
-                Pick one already in use, or type a new store name to create it.
-              </p>
-            </div>
-            <div className="mb-3">
-              <label htmlFor="pf-store-price" className="mb-1 block text-xs font-semibold text-text-muted">
-                Store price (₱)
-              </label>
-              <input
-                id="pf-store-price"
-                value={storePrice}
-                onChange={(e) => setStorePrice(e.target.value)}
-                placeholder="e.g. 12.00"
-                className="w-full rounded border border-border px-3 py-2 text-sm text-text"
-              />
-            </div>
-          </>
-        )}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-text"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white"
-          >
-            Save
-          </button>
+          <BarcodeScannerButton onScan={setBarcode} />
         </div>
       </div>
-    </div>
+
+      <div className="mb-3">
+        <label htmlFor="pf-aliases" className="mb-1 block text-xs font-semibold text-text-muted">
+          Aliases (comma-separated)
+        </label>
+        <input
+          id="pf-aliases"
+          value={aliases}
+          onChange={(e) => setAliases(e.target.value)}
+          className="w-full rounded border border-border px-3 py-2 text-sm text-text"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="pf-sale-price" className="mb-1 block text-xs font-semibold text-text-muted">
+          Sale price (₱)
+        </label>
+        <input
+          id="pf-sale-price"
+          value={salePrice}
+          onChange={(e) => setSalePrice(e.target.value)}
+          placeholder="e.g. 21.25"
+          className="w-full rounded border border-border px-3 py-2 text-sm text-text"
+        />
+      </div>
+
+      {!isEdit && (
+        <>
+          <div className="mb-3">
+            <label htmlFor="pf-store-name" className="mb-1 block text-xs font-semibold text-text-muted">
+              Initial store price — store name
+            </label>
+            <input
+              id="pf-store-name"
+              list="pf-store-name-options"
+              value={storeName}
+              onChange={(e) => setStoreName(e.target.value)}
+              placeholder="pick an existing store or type a new one"
+              className="w-full rounded border border-border px-3 py-2 text-sm text-text"
+            />
+            <datalist id="pf-store-name-options">
+              {knownStoreNames.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+            <p className="mt-1 text-xs text-text-muted">
+              Pick one already in use, or type a new store name to create it.
+            </p>
+          </div>
+          <div className="mb-3">
+            <label htmlFor="pf-store-price" className="mb-1 block text-xs font-semibold text-text-muted">
+              Store price (₱)
+            </label>
+            <input
+              id="pf-store-price"
+              value={storePrice}
+              onChange={(e) => setStorePrice(e.target.value)}
+              placeholder="e.g. 12.00"
+              className="w-full rounded border border-border px-3 py-2 text-sm text-text"
+            />
+          </div>
+        </>
+      )}
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={isSaving}
+          className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-text disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSaving}
+          className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {isSaving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   );
 }

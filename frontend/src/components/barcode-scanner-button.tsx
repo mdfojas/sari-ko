@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createBarcodeScanner, type BarcodeScanner } from '@/lib/barcode-scanner';
+import { Modal } from '@/components/modal';
 
 interface BarcodeScannerButtonProps {
   onScan: (code: string) => void;
@@ -15,23 +16,25 @@ export function BarcodeScannerButton({
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const scannerRef = useRef<BarcodeScanner | null>(null);
 
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
 
     const scanner = scannerFactory();
-    scannerRef.current = scanner;
     setError(null);
 
-    scanner.start(
-      containerRef.current,
-      (code) => {
-        onScan(code);
-        setIsOpen(false);
-      },
-      (err) => setError(err.message)
-    );
+    scanner
+      .start(
+        containerRef.current,
+        (code) => {
+          onScan(code);
+          setIsOpen(false);
+        },
+        (err) => setError(err.message)
+      )
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Could not start the barcode scanner');
+      });
 
     return () => {
       scanner.stop();
@@ -53,24 +56,18 @@ export function BarcodeScannerButton({
         📷 Scan barcode
       </button>
       {isOpen && (
-        <div
-          role="dialog"
-          aria-label="Scan barcode"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        >
-          <div className="w-96 rounded-lg bg-card p-5">
-            <h2 className="mb-3 text-base font-bold text-text">Scan barcode</h2>
-            {error && (
-              <p role="alert" className="mb-3 text-sm text-danger">
-                {error}
-              </p>
-            )}
-            <div ref={containerRef} data-testid="barcode-scanner-viewport" className="mb-4 min-h-48" />
-            <button type="button" onClick={close} className="rounded-md border border-border px-3 py-2 text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
+        <Modal ariaLabel="Scan barcode" compact>
+          <h2 className="mb-3 text-base font-bold text-text">Scan barcode</h2>
+          {error && (
+            <p role="alert" className="mb-3 text-sm text-danger">
+              {error}
+            </p>
+          )}
+          <div ref={containerRef} data-testid="barcode-scanner-viewport" className="mb-4 min-h-48" />
+          <button type="button" onClick={close} className="rounded-md border border-border px-3 py-2 text-sm">
+            Cancel
+          </button>
+        </Modal>
       )}
     </>
   );

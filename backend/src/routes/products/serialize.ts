@@ -1,14 +1,26 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Role } from '../../shared/auth/jwt.js';
 
+// Fail-closed pick-list, not a fail-open omit-list: a customer only ever
+// sees fields explicitly listed here. A future field added to PRODUCT_SELECT
+// (e.g. a supplier cost) is hidden by default instead of leaking unless
+// someone remembers to add it to a blacklist.
+const CUSTOMER_VISIBLE_FIELDS = [
+  'id',
+  'name',
+  'other_names',
+  'barcode',
+  'sale_price',
+  'created_at',
+  'updated_at',
+] as const;
+
 function toCustomerProduct(product: Record<string, unknown>) {
-  const {
-    selected_store_price_id: _selectedStorePriceId,
-    original_price: _originalPrice,
-    selected_store_name: _selectedStoreName,
-    ...rest
-  } = product;
-  return rest;
+  const result: Record<string, unknown> = {};
+  for (const field of CUSTOMER_VISIBLE_FIELDS) {
+    result[field] = product[field];
+  }
+  return result;
 }
 
 export function serializeProduct(product: Record<string, unknown>, role: Role) {
