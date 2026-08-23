@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/auth-context';
 
 vi.mock('@/hooks/use-auth-guards', () => ({ useRequireAuth: vi.fn() }));
 vi.mock('@/contexts/auth-context', () => ({ useAuth: vi.fn() }));
+vi.mock('@/components/sidebar', () => ({ Sidebar: () => <div data-testid="sidebar-stub" /> }));
+vi.mock('@/components/topbar', () => ({ Topbar: () => <div data-testid="topbar-stub" /> }));
 
 describe('ProtectedLayout', () => {
   test('does not render children while auth is still loading', () => {
@@ -38,5 +40,19 @@ describe('ProtectedLayout', () => {
       </ProtectedLayout>
     );
     expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  test('renders the sidebar and topbar chrome around the children once authenticated', () => {
+    (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: { id: 1, username: 'admin', role: 'admin', personId: null },
+      isLoading: false,
+    });
+    render(
+      <ProtectedLayout>
+        <div data-testid="child" />
+      </ProtectedLayout>
+    );
+    expect(screen.getByTestId('sidebar-stub')).toBeInTheDocument();
+    expect(screen.getByTestId('topbar-stub')).toBeInTheDocument();
   });
 });

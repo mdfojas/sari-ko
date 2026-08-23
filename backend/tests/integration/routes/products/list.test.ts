@@ -26,7 +26,9 @@ describe('GET /products', () => {
     const listResponse = await app.inject({ method: 'GET', url: '/products', headers: authHeaderFor('admin') });
 
     expect(listResponse.statusCode).toBe(200);
-    expect(listResponse.json()).toHaveLength(1);
+    const body = listResponse.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].selected_store_name).toBe('Puregold');
   });
 
   it('omits store-price fields for a customer', async () => {
@@ -42,5 +44,6 @@ describe('GET /products', () => {
     expect(body[0].sale_price).toBeDefined();
     expect(body[0].selected_store_price_id).toBeUndefined();
     expect(body[0].original_price).toBeUndefined();
+    expect(body[0].selected_store_name).toBeUndefined();
   });
 });

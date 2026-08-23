@@ -120,6 +120,7 @@ export default async function routes(app: FastifyInstance) {
     manageAccounts,
     storePrices.createForProduct,
   );
+  app.get('/store-prices/distinct-names', manageAccounts, storePrices.distinctNames);
   app.get<{ Params: { id: string } }>('/store-prices/:id', manageAccounts, storePrices.get);
   app.patch<{ Params: { id: string }; Body: UpdateStorePriceInput }>(
     '/store-prices/:id',

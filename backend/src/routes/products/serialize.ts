@@ -2,7 +2,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Role } from '../../shared/auth/jwt.js';
 
 function toCustomerProduct(product: Record<string, unknown>) {
-  const { selected_store_price_id: _selectedStorePriceId, original_price: _originalPrice, ...rest } = product;
+  const {
+    selected_store_price_id: _selectedStorePriceId,
+    original_price: _originalPrice,
+    selected_store_name: _selectedStoreName,
+    ...rest
+  } = product;
   return rest;
 }
 

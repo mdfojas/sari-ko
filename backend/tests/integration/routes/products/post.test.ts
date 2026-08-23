@@ -58,7 +58,7 @@ describe('POST /products', () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it('leaves no product row behind if the creation transaction fails partway', async () => {
+  it('rejects a store price of zero with a clean 400, not a database-constraint crash', async () => {
     const response = await app.inject({
       headers: authHeaderFor('admin'),
       method: 'POST',
@@ -69,9 +69,23 @@ describe('POST /products', () => {
       },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(400);
 
     const { rows } = await pool.query(`SELECT * FROM products WHERE name = 'Doomed Product'`);
     expect(rows).toHaveLength(0);
+  });
+
+  it('rejects a store price with a blank store name', async () => {
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: '/products',
+      payload: {
+        name: 'No Store Name',
+        store_prices: [{ store_name: '', price: 1000, selected: true }],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 });

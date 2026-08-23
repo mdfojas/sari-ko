@@ -28,6 +28,33 @@ describe('validateCreateProduct', () => {
       }),
     ).toBeNull();
   });
+
+  it('rejects a store price with a blank store name', () => {
+    expect(
+      validateCreateProduct({
+        name: 'Coke',
+        store_prices: [{ store_name: '', price: 100, selected: true }],
+      }),
+    ).toBe('Each store price needs a store name and a price greater than ₱0');
+  });
+
+  it('rejects a store price with a zero price', () => {
+    expect(
+      validateCreateProduct({
+        name: 'Coke',
+        store_prices: [{ store_name: 'A', price: 0, selected: true }],
+      }),
+    ).toBe('Each store price needs a store name and a price greater than ₱0');
+  });
+
+  it('rejects a store price with a negative price', () => {
+    expect(
+      validateCreateProduct({
+        name: 'Coke',
+        store_prices: [{ store_name: 'A', price: -100, selected: true }],
+      }),
+    ).toBe('Each store price needs a store name and a price greater than ₱0');
+  });
 });
 
 describe('hasProductUpdate', () => {

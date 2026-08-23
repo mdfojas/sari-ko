@@ -3,9 +3,10 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRequireAuth } from '@/hooks/use-auth-guards';
+import { Sidebar } from '@/components/sidebar';
+import { Topbar } from '@/components/topbar';
+import { TopbarProvider } from '@/contexts/topbar-context';
 
-// Bare-bones on purpose: the sidebar/topbar chrome is Ticket 4.3's job. This
-// layout only owns the auth guard every dashboard route sits behind.
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   useRequireAuth();
   const { user, isLoading } = useAuth();
@@ -14,5 +15,15 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <TopbarProvider>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto bg-bg p-7">{children}</main>
+        </div>
+      </div>
+    </TopbarProvider>
+  );
 }

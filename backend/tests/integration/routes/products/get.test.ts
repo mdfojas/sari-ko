@@ -30,7 +30,9 @@ describe('GET /products/:id', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().name).toBe('Fetchable Product');
+    const body = response.json();
+    expect(body.name).toBe('Fetchable Product');
+    expect(body.selected_store_name).toBe('Puregold');
   });
 
   it('returns 404 for an unknown product id', async () => {
@@ -60,5 +62,6 @@ describe('GET /products/:id', () => {
     expect(body.sale_price).toBeDefined();
     expect(body.selected_store_price_id).toBeUndefined();
     expect(body.original_price).toBeUndefined();
+    expect(body.selected_store_name).toBeUndefined();
   });
 });

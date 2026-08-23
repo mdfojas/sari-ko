@@ -20,6 +20,9 @@ export function validateCreateProduct(body: CreateProductBody): string | null {
   if (!storePrices.some((sp) => sp.selected)) {
     return 'One store price must be marked as selected';
   }
+  if (storePrices.some((sp) => !sp.store_name?.trim() || !(sp.price > 0))) {
+    return 'Each store price needs a store name and a price greater than ₱0';
+  }
   return null;
 }
 

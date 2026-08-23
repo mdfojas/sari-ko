@@ -6,7 +6,7 @@ import { withTransaction } from '../../shared/transaction.js';
 const PRODUCT_SELECT = `
   SELECT
     p.id, p.name, p.other_names, p.barcode, p.sale_price, p.selected_store_price_id,
-    sp.price AS original_price,
+    sp.price AS original_price, sp.store_name AS selected_store_name,
     p.created_at, p.updated_at
   FROM products p
   LEFT JOIN store_prices sp ON sp.id = p.selected_store_price_id
