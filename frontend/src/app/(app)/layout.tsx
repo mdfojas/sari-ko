@@ -2,16 +2,17 @@
 
 import type { ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { useRequireAuth } from '@/hooks/use-auth-guards';
+import { useRequireAuth, useRouteAccess } from '@/hooks/use-auth-guards';
 import { Sidebar } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { TopbarProvider } from '@/contexts/topbar-context';
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   useRequireAuth();
+  const allowed = useRouteAccess();
   const { user, isLoading } = useAuth();
 
-  if (isLoading || !user) {
+  if (isLoading || !user || !allowed) {
     return null;
   }
 
