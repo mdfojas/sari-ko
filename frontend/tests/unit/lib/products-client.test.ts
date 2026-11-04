@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   createProduct,
   deleteProduct,
+  getProduct,
   getProductByBarcode,
   listProducts,
   searchProducts,
@@ -32,6 +33,15 @@ describe('listProducts', () => {
     const result = await listProducts();
     expect(apiFetch).toHaveBeenCalledWith('/products');
     expect(result).toEqual([sampleProduct]);
+  });
+});
+
+describe('getProduct', () => {
+  test('fetches GET /products/:id', async () => {
+    (apiFetch as ReturnType<typeof vi.fn>).mockResolvedValue(sampleProduct);
+    const result = await getProduct(1);
+    expect(apiFetch).toHaveBeenCalledWith('/products/1');
+    expect(result).toEqual(sampleProduct);
   });
 });
 

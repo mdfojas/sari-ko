@@ -39,6 +39,10 @@ export function listProducts(): Promise<Product[]> {
   return apiFetch<Product[]>('/products');
 }
 
+export function getProduct(id: number): Promise<Product> {
+  return apiFetch<Product>(`/products/${id}`);
+}
+
 export function searchProducts(query: string): Promise<Product[]> {
   return apiFetch<Product[]>(`/products/search?q=${encodeURIComponent(query)}`);
 }
