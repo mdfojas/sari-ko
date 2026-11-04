@@ -247,4 +247,64 @@ describe('ProductsPage', () => {
     expect(deleteProduct).not.toHaveBeenCalled();
     expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
   });
+
+  describe('paging', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...productA,
+      id: i + 1,
+      name: `Product ${i + 1}`,
+      barcode: `48000166${String(i).padStart(5, '0')}`,
+    }));
+
+    beforeEach(() => {
+      (resolveProductSearch as ReturnType<typeof vi.fn>).mockResolvedValue({ matches: many, exact: null });
+    });
+
+    const shownCount = () => screen.getAllByRole('button', { name: /^edit-/ }).length;
+
+    test('shows 5 results by default with a "Load 5 more" button', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+
+      expect(shownCount()).toBe(5);
+      expect(screen.getByRole('button', { name: 'Load 5 more' })).toBeInTheDocument();
+    });
+
+    test('clicking Load more reveals the next batch', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Load 5 more' }));
+
+      expect(shownCount()).toBe(10);
+      expect(screen.getByRole('button', { name: 'Load 2 more' })).toBeInTheDocument();
+    });
+
+    test('choosing a larger batch size shows that many and loads that many more', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText(/results per load/i), { target: { value: '10' } });
+
+      expect(shownCount()).toBe(10);
+      expect(screen.getByRole('button', { name: 'Load 2 more' })).toBeInTheDocument();
+    });
+
+    test('hides the Load more button once everything is shown', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText(/results per load/i), { target: { value: '25' } });
+
+      expect(shownCount()).toBe(12);
+      expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
+    });
+
+    test('says how many of the matches are showing', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+
+      expect(screen.getByText('Showing 5 of 12')).toBeInTheDocument();
+    });
+  });
 });

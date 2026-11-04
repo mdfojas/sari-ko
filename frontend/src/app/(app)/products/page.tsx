@@ -23,7 +23,7 @@ import {
   type UpdateProductInput,
 } from '@/lib/products-client';
 
-const RESULT_LIMIT = 5;
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 const ALLOWED_ROLES = ROUTE_ACCESS['/products'];
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -46,7 +46,8 @@ export default function ProductsPage() {
   const queryClient = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [filter, setFilter] = useState<ProductFilter>('all');
-  const [revealed, setRevealed] = useState(RESULT_LIMIT);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const [revealed, setRevealed] = useState(PAGE_SIZE_OPTIONS[0]);
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -105,7 +106,7 @@ export default function ProductsPage() {
 
   function handleSearchChange(value: string) {
     setSearchText(value);
-    setRevealed(RESULT_LIMIT);
+    setRevealed(pageSize);
   }
 
   function handleSave(input: CreateProductInput | UpdateProductInput) {
@@ -138,7 +139,7 @@ export default function ProductsPage() {
             type="button"
             onClick={() => {
               setFilter(f);
-              setRevealed(RESULT_LIMIT);
+              setRevealed(pageSize);
             }}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
               filter === f ? 'border-accent bg-accent-light text-accent-dark' : 'border-border text-text-muted'
@@ -175,15 +176,41 @@ export default function ProductsPage() {
             }}
           />
         )}
-        {filtered.length > shown.length && (
-          <div className="border-t border-border p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setRevealed((r) => r + RESULT_LIMIT)}
-              className="text-sm font-semibold text-accent-dark"
-            >
-              Load {Math.min(RESULT_LIMIT, filtered.length - shown.length)} more
-            </button>
+        {!isLoading && !isError && filtered.length > 0 && (
+          <div className="flex items-center justify-between gap-4 border-t border-border p-3 text-sm text-text-muted">
+            <span>
+              Showing {shown.length} of {filtered.length}
+            </span>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2">
+                Results per load
+                <select
+                  aria-label="Results per load"
+                  value={pageSize}
+                  onChange={(e) => {
+                    const size = Number(e.target.value);
+                    setPageSize(size);
+                    setRevealed(size);
+                  }}
+                  className="rounded border border-border bg-card px-2 py-1 text-text"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {filtered.length > shown.length && (
+                <button
+                  type="button"
+                  onClick={() => setRevealed((r) => r + pageSize)}
+                  className="font-semibold text-accent-dark"
+                >
+                  Load {Math.min(pageSize, filtered.length - shown.length)} more
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
