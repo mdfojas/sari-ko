@@ -42,6 +42,24 @@ describe('PaymentFormModal', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/greater than ₱0/i);
   });
 
+  test.each(['1,5', '1e3', 'abc', '21474836.48', '30000000'])(
+    'rejects the amount "%s" rather than silently misreading it or sending more than the database can hold',
+    (amount) => {
+      const { onSave } = renderModal();
+      fireEvent.change(screen.getByLabelText(/^amount/i), { target: { value: amount } });
+      fireEvent.click(screen.getByRole('button', { name: /record payment/i }));
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/greater than ₱0.*₱21,474,836\.47/i);
+    }
+  );
+
+  test('accepts thousands separators', () => {
+    const { onSave } = renderModal();
+    fireEvent.change(screen.getByLabelText(/^amount/i), { target: { value: '1,234.50' } });
+    fireEvent.click(screen.getByRole('button', { name: /record payment/i }));
+    expect(onSave).toHaveBeenCalledWith({ amount: 123450 });
+  });
+
   test("shows the server's error and disables the buttons while saving", () => {
     const { onSave } = renderModal({ error: 'amount is required', isSaving: true });
     expect(screen.getByRole('alert')).toHaveTextContent('amount is required');

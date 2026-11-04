@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Modal } from '@/components/modal';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import type { CreateLoanInput, NewLineItem } from '@/lib/loans-client';
-import { peso, pesosToCentavos } from '@/lib/money';
+import { MAX_CENTAVOS, parsePesoInput, peso } from '@/lib/money';
 import { searchProducts, type Product } from '@/lib/products-client';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -39,8 +39,8 @@ function lineAmount(row: Row): number | null {
   if (row.mode === 'catalog') {
     return row.product && isWholeNumber(row.quantity) ? row.product.sale_price * Number(row.quantity) : null;
   }
-  const amount = pesosToCentavos(row.amount);
-  return amount > 0 ? amount : null;
+  const amount = parsePesoInput(row.amount);
+  return amount !== null && amount > 0 ? amount : null;
 }
 
 interface LineItemRowProps {
@@ -207,6 +207,7 @@ export function LoanFormModal({ personName, onSave, onClose, error, isSaving = f
     if (isSaving) return;
 
     const lineItems: NewLineItem[] = [];
+    let total = 0;
     for (const [index, row] of rows.entries()) {
       const n = index + 1;
       if (row.mode === 'catalog') {
@@ -218,19 +219,34 @@ export function LoanFormModal({ personName, onSave, onClose, error, isSaving = f
           setValidationError(`Quantity for line item ${n} must be a whole number of at least 1.`);
           return;
         }
+        // Quantity x price is computed by the backend into a 32-bit INTEGER column,
+        // so a line over the ceiling could only come back as a server error.
+        const lineTotal = row.product.sale_price * Number(row.quantity);
+        if (lineTotal > MAX_CENTAVOS) {
+          setValidationError(`Line item ${n} is too large — at most ${peso(MAX_CENTAVOS)} per line.`);
+          return;
+        }
+        total += lineTotal;
         lineItems.push({ product_id: row.product.id, quantity: Number(row.quantity) });
       } else {
         if (!row.description.trim()) {
           setValidationError(`Enter a description for line item ${n}.`);
           return;
         }
-        const amount = pesosToCentavos(row.amount);
-        if (amount <= 0) {
-          setValidationError(`Amount for line item ${n} must be greater than ₱0.`);
+        const amount = parsePesoInput(row.amount);
+        if (amount === null || amount <= 0) {
+          setValidationError(
+            `Amount for line item ${n} must be greater than ₱0 and at most ${peso(MAX_CENTAVOS)}, like 15.00.`
+          );
           return;
         }
+        total += amount;
         lineItems.push({ description: row.description.trim(), amount });
       }
+    }
+    if (total > MAX_CENTAVOS) {
+      setValidationError(`The loan total can be at most ${peso(MAX_CENTAVOS)}.`);
+      return;
     }
 
     setValidationError(null);

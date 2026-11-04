@@ -126,6 +126,50 @@ describe('LoanFormModal', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/whole number/i);
     });
 
+    test.each(['1,5', '1e3', 'abc', '30000000'])('a freeform amount of "%s" is rejected, not silently misread', (amount) => {
+      const { onSave } = renderModal();
+      fireEvent.click(within(row(1)).getByRole('button', { name: /freeform/i }));
+      fireEvent.change(within(row(1)).getByLabelText(/description/i), { target: { value: 'x' } });
+      fireEvent.change(within(row(1)).getByLabelText(/^amount/i), { target: { value: amount } });
+      fireEvent.click(screen.getByRole('button', { name: /save loan/i }));
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/line item 1.*greater than ₱0/i);
+    });
+
+    test('a freeform amount with thousands separators is accepted', () => {
+      const { onSave } = renderModal();
+      fireEvent.click(within(row(1)).getByRole('button', { name: /freeform/i }));
+      fireEvent.change(within(row(1)).getByLabelText(/description/i), { target: { value: 'rice' } });
+      fireEvent.change(within(row(1)).getByLabelText(/^amount/i), { target: { value: '1,234.50' } });
+      fireEvent.click(screen.getByRole('button', { name: /save loan/i }));
+      expect(onSave).toHaveBeenCalledWith({ line_items: [{ description: 'rice', amount: 123450 }] });
+    });
+
+    test('a catalog line whose quantity x price is more than the database can hold is rejected', async () => {
+      (searchProducts as ReturnType<typeof vi.fn>).mockResolvedValue([product(9, 'Gold Bar', 1_500_000_000)]);
+      const { onSave } = renderModal();
+      fireEvent.change(within(row(1)).getByLabelText(/search products/i), { target: { value: 'gold' } });
+      fireEvent.click(await within(row(1)).findByRole('button', { name: /Gold Bar/ }));
+      fireEvent.change(within(row(1)).getByLabelText(/quantity/i), { target: { value: '2' } });
+      fireEvent.click(screen.getByRole('button', { name: /save loan/i }));
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/line item 1.*too large.*₱21,474,836\.47/i);
+    });
+
+    test('a loan whose lines are each fine but together exceed the database ceiling is rejected', () => {
+      const { onSave } = renderModal();
+      fireEvent.click(within(row(1)).getByRole('button', { name: /freeform/i }));
+      fireEvent.change(within(row(1)).getByLabelText(/description/i), { target: { value: 'a' } });
+      fireEvent.change(within(row(1)).getByLabelText(/^amount/i), { target: { value: '15000000' } });
+      fireEvent.click(screen.getByRole('button', { name: /add line item/i }));
+      fireEvent.click(within(row(2)).getByRole('button', { name: /freeform/i }));
+      fireEvent.change(within(row(2)).getByLabelText(/description/i), { target: { value: 'b' } });
+      fireEvent.change(within(row(2)).getByLabelText(/^amount/i), { target: { value: '15000000' } });
+      fireEvent.click(screen.getByRole('button', { name: /save loan/i }));
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/loan total.*₱21,474,836\.47/i);
+    });
+
     test('a freeform line needs a description', () => {
       const { onSave } = renderModal();
       fireEvent.click(within(row(1)).getByRole('button', { name: /freeform/i }));

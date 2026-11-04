@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/modal';
-import { peso, pesosToCentavos } from '@/lib/money';
+import { parsePesoInput, peso } from '@/lib/money';
 import type { PaymentInput } from '@/lib/payments-client';
 
 interface PaymentFormModalProps {
@@ -21,9 +21,9 @@ export function PaymentFormModal({ personName, balance, onSave, onClose, error, 
 
   function handleSubmit() {
     if (isSaving) return;
-    const centavos = pesosToCentavos(amount);
-    if (centavos <= 0) {
-      setValidationError('Amount must be greater than ₱0.');
+    const centavos = parsePesoInput(amount);
+    if (centavos === null || centavos <= 0) {
+      setValidationError('Amount must be greater than ₱0 and at most ₱21,474,836.47, like 10.50.');
       return;
     }
     setValidationError(null);

@@ -78,6 +78,35 @@ describe('StorePriceFormModal', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/greater than ₱0/i);
   });
 
+  test.each(['1,5', '1e3', 'abc', '21474836.48', '30000000'])(
+    'rejects the price "%s" rather than silently misreading it or sending an amount the database cannot hold',
+    (price) => {
+      const { onSave } = renderModal();
+      fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+      fireEvent.change(screen.getByLabelText(/^price \(/i), { target: { value: price } });
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/greater than ₱0.*₱21,474,836\.47/i);
+    }
+  );
+
+  test('accepts thousands separators and the largest amount the database can hold', () => {
+    const { onSave } = renderModal();
+    fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+    fireEvent.change(screen.getByLabelText(/^price \(/i), { target: { value: '1,234.50' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSave).toHaveBeenLastCalledWith({ store_name: 'Puregold', price: 123450 });
+
+    fireEvent.change(screen.getByLabelText(/^price \(/i), { target: { value: '21474836.47' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSave).toHaveBeenLastCalledWith({ store_name: 'Puregold', price: 2147483647 });
+  });
+
+  test('prefills a price with cents exactly (1205 centavos -> 12.05)', () => {
+    renderModal({ storePrice: { ...existing, price: 1205 } });
+    expect(screen.getByLabelText(/^price \(/i)).toHaveValue('12.05');
+  });
+
   test('shows a server error passed in by the page', () => {
     renderModal({ error: 'Store price not found' });
     expect(screen.getByRole('alert')).toHaveTextContent('Store price not found');

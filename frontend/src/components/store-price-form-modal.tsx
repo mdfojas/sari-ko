@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Modal } from '@/components/modal';
-import { pesosToCentavos } from '@/lib/money';
+import { centavosToPesoInput, parsePesoInput } from '@/lib/money';
 import { listDistinctStoreNames, type StorePrice, type StorePriceInput } from '@/lib/store-prices-client';
 
 interface StorePriceFormModalProps {
@@ -23,7 +23,7 @@ export function StorePriceFormModal({
 }: StorePriceFormModalProps) {
   const isEdit = Boolean(storePrice);
   const [storeName, setStoreName] = useState(storePrice?.store_name ?? '');
-  const [price, setPrice] = useState(storePrice ? (storePrice.price / 100).toFixed(2) : '');
+  const [price, setPrice] = useState(storePrice ? centavosToPesoInput(storePrice.price) : '');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const { data: knownStoreNames = [] } = useQuery({
@@ -37,9 +37,9 @@ export function StorePriceFormModal({
       setValidationError('Store name is required.');
       return;
     }
-    const priceCentavos = pesosToCentavos(price);
-    if (priceCentavos <= 0) {
-      setValidationError('Price must be greater than ₱0.');
+    const priceCentavos = parsePesoInput(price);
+    if (priceCentavos === null || priceCentavos <= 0) {
+      setValidationError('Price must be greater than ₱0 and at most ₱21,474,836.47, like 12.00.');
       return;
     }
     setValidationError(null);
