@@ -44,6 +44,15 @@ describe('GET /products/barcode/:code', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('gives a customer the same 404 body as an admin for an unknown barcode, not an emptied-out {}', async () => {
+    const asAdmin = await app.inject({ method: 'GET', url: '/products/barcode/0000000000000', headers: authHeaderFor('admin') });
+    const asCustomer = await app.inject({ method: 'GET', url: '/products/barcode/0000000000000', headers: authHeaderFor('customer') });
+
+    expect(asCustomer.statusCode).toBe(404);
+    expect(asCustomer.json()).toEqual({ error: 'Product not found' });
+    expect(asCustomer.json()).toEqual(asAdmin.json());
+  });
+
   it('omits store-price fields for a customer', async () => {
     const barcode = '0123456789012';
     await createProduct({

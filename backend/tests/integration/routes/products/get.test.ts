@@ -45,6 +45,24 @@ describe('GET /products/:id', () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('gives a customer the same 404 body as an admin, not an emptied-out {}', async () => {
+    const asAdmin = await app.inject({ method: 'GET', url: '/products/999999', headers: authHeaderFor('admin') });
+    const asCustomer = await app.inject({ method: 'GET', url: '/products/999999', headers: authHeaderFor('customer') });
+
+    expect(asCustomer.statusCode).toBe(404);
+    expect(asCustomer.json()).toEqual({ error: 'Product not found' });
+    expect(asCustomer.json()).toEqual(asAdmin.json());
+  });
+
+  it('gives a customer the same 400 body as an admin for a non-numeric id', async () => {
+    const asAdmin = await app.inject({ method: 'GET', url: '/products/abc', headers: authHeaderFor('admin') });
+    const asCustomer = await app.inject({ method: 'GET', url: '/products/abc', headers: authHeaderFor('customer') });
+
+    expect(asCustomer.statusCode).toBe(400);
+    expect(asCustomer.json()).toEqual({ error: 'id must be a positive integer' });
+    expect(asCustomer.json()).toEqual(asAdmin.json());
+  });
+
   it('omits store-price fields for a customer, keeping sale_price', async () => {
     const product = await createProduct({
       name: 'Fetchable Product',

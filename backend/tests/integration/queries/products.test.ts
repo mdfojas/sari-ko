@@ -21,6 +21,9 @@ describe('createProduct — transaction rollback', () => {
   });
 
   it('leaves no product or store-price rows behind if a later statement fails the DB CHECK constraint', async () => {
+    // 23514 = check_violation. Asserting the cause matters: any other failure
+    // (say, a dropped connection on the first statement) would also leave no
+    // rows behind and so would pass the checks below without proving a rollback.
     await expect(
       createProduct({
         name: 'Doomed Product',
@@ -29,7 +32,7 @@ describe('createProduct — transaction rollback', () => {
           { store_name: 'Bad Store', price: 0, selected: false },
         ],
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: '23514' });
 
     const { rows: products } = await pool.query(`SELECT * FROM products WHERE name = 'Doomed Product'`);
     expect(products).toHaveLength(0);

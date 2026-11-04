@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createProduct, findProductById } from '../../queries/products/index.js';
 import { isUniqueViolation } from '../../shared/pg-errors.js';
-import { validateCreateProduct, type CreateProductBody } from './validation.js';
+import { normalizeBarcode, validateCreateProduct, type CreateProductBody } from './validation.js';
 
 export async function post(request: FastifyRequest<{ Body: CreateProductBody }>, reply: FastifyReply) {
   const body = request.body;
@@ -15,7 +15,7 @@ export async function post(request: FastifyRequest<{ Body: CreateProductBody }>,
   const storePrices = body.store_prices ?? [];
 
   try {
-    const productId = await createProduct({ ...body, name, store_prices: storePrices });
+    const productId = await createProduct({ ...body, name, barcode: normalizeBarcode(body.barcode), store_prices: storePrices });
     const product = await findProductById(productId);
     return reply.code(201).send(product);
   } catch (err) {

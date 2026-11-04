@@ -29,13 +29,14 @@ export function serializeProduct(product: Record<string, unknown>, role: Role) {
 
 // Route-level `preSerialization` hook — applied once, in `routes/index.ts`,
 // to every product-read route, instead of every handler calling
-// `serializeProduct` on its own way out. Runs on the raw returned object
-// (list.ts/search.ts return arrays, get.ts/barcode/get.ts return one product
-// or a plain `{ error }` object on 404 — serializeProduct is a no-op on
-// anything that isn't shaped like a product, so this is safe for both).
-export async function shapeProductResponse(request: FastifyRequest, _reply: FastifyReply, payload: unknown) {
+// `serializeProduct` on its own way out. Runs on the raw returned object:
+// list.ts/search.ts return arrays, get.ts/barcode/get.ts one product.
+// Error responses (a 404 `{ error }`, requireIdParam's 400) are skipped: they
+// hold no product data, and the customer pick-list would otherwise copy only
+// its named fields out of them and send back an empty `{}`.
+export async function shapeProductResponse(request: FastifyRequest, reply: FastifyReply, payload: unknown) {
   const role = request.account?.role;
-  if (!role) return payload;
+  if (!role || reply.statusCode >= 400) return payload;
 
   if (Array.isArray(payload)) {
     return payload.map((item) => serializeProduct(item as Record<string, unknown>, role));
