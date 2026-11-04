@@ -17,3 +17,33 @@ export function pesosToCentavos(input: string): number {
   const magnitude = pesos * 100 + cents;
   return isNegative ? -magnitude : magnitude;
 }
+
+// pesosToCentavos is forgiving on purpose (it must round-trip peso()'s own
+// output), so on its own it reads "1,5" as 15 pesos and "1e3" as 13. Use this
+// to validate what a person typed *before* converting: it accepts only a plain
+// amount, optionally with a leading ₱ and correctly-placed thousands commas,
+// and at most two decimal places — and returns null for anything else rather
+// than guessing what was meant. Also null above MAX_CENTAVOS: the backend
+// stores money in a 32-bit INTEGER column, so anything larger could only come
+// back as a server error.
+export const MAX_CENTAVOS = 2_147_483_647; // ₱21,474,836.47
+const PESO_INPUT = /^₱?\s*(\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/;
+
+export function parsePesoInput(input: string): number | null {
+  const trimmed = input.trim();
+  if (!PESO_INPUT.test(trimmed)) return null;
+  const centavos = pesosToCentavos(trimmed);
+  return centavos <= MAX_CENTAVOS ? centavos : null;
+}
+
+// Whole centavos to the plain "21.25" a text input expects. Splits the integer
+// into pesos and cents with trunc and %, so there is no toFixed rounding and no
+// float multiplication — for any whole number of centavos the division below is
+// exact.
+export function centavosToPesoInput(centavos: number): string {
+  const sign = centavos < 0 ? '-' : '';
+  const magnitude = Math.abs(centavos);
+  const pesos = Math.trunc(magnitude / 100);
+  const cents = magnitude % 100;
+  return `${sign}${pesos}.${String(cents).padStart(2, '0')}`;
+}

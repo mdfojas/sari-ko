@@ -16,6 +16,11 @@ export async function listStorePricesByProductId(productId: number) {
   return rows;
 }
 
+export async function listDistinctStoreNames(): Promise<string[]> {
+  const { rows } = await pool.query(`SELECT DISTINCT store_name FROM store_prices ORDER BY store_name`);
+  return rows.map((row) => row.store_name);
+}
+
 export async function createStorePrice(productId: number, storeName: string, price: number) {
   const { rows } = await pool.query(
     `INSERT INTO store_prices (product_id, store_name, price) VALUES ($1, $2, $3)
