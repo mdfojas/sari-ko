@@ -86,4 +86,42 @@ describe('POST /loans/:id/line-items', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it('rejects an item that would push the loan total past the INTEGER ceiling, leaving the loan unchanged', async () => {
+    const loanId = await createLoan();
+    const add = (amount: number) =>
+      app.inject({
+        headers: authHeaderFor('admin'),
+        method: 'POST',
+        url: `/loans/${loanId}/line-items`,
+        payload: { description: 'big', amount },
+      });
+
+    expect((await add(1_500_000_000)).statusCode).toBe(201);
+    const over = await add(1_500_000_000);
+
+    expect(over.statusCode).toBe(400);
+    expect(over.json().error).toBe('The loan total can be at most ₱21,474,836.47');
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM loan_line_items WHERE loan_id = $1`, [loanId]);
+    expect(rows[0].n).toBe(1);
+    const loan = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}` });
+    expect(loan.statusCode).toBe(200);
+    expect(loan.json().total).toBe(1_500_000_000);
+  });
+
+  it.each([
+    ['an amount over the ceiling', { description: 'big', amount: 3_000_000_000 }],
+    ['a fractional amount', { description: 'frac', amount: 12.5 }],
+    ['a zero amount', { description: 'zero', amount: 0 }],
+    ['a catalog quantity of zero', { product_id: 1, quantity: 0 }],
+  ])('returns 400, not a database 500, for %s', async (_label, payload) => {
+    const loanId = await createLoan();
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: `/loans/${loanId}/line-items`,
+      payload,
+    });
+    expect(response.statusCode).toBe(400);
+  });
 });

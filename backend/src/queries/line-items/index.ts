@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { pool } from '../../shared/db.js';
 import { buildSetClause } from '../../shared/sql.js';
+import { INT_MAX, MAX_AMOUNT_TEXT } from '../../shared/validation.js';
 
 export interface CreateLineItemInput {
   product_id?: number;
@@ -10,6 +11,23 @@ export interface CreateLineItemInput {
 }
 
 export class ProductNotFoundError extends Error {}
+
+// Thrown when a write would put a line item, or a whole loan, past what the
+// 32-bit INTEGER money columns can hold. Raised inside the writing transaction
+// so everything rolls back — otherwise the oversized row would be saved and
+// then break every SUM(...)::integer that reads it back (the loan response, a
+// person's balance, the ledger).
+export class AmountTooLargeError extends Error {}
+
+export async function assertLoanTotalWithinLimit(client: Pool | PoolClient, loanId: number): Promise<void> {
+  const { rows } = await client.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM loan_line_items WHERE loan_id = $1`, [
+    loanId,
+  ]);
+  // SUM of an integer column is a bigint, which pg returns as a string.
+  if (Number(rows[0].total) > INT_MAX) {
+    throw new AmountTooLargeError(`The loan total can be at most ${MAX_AMOUNT_TEXT}`);
+  }
+}
 
 // Shared by loan creation (multiple items in one transaction, via a
 // PoolClient) and adding a single item to an existing loan (via the plain
@@ -27,6 +45,9 @@ export async function insertLineItem(client: Pool | PoolClient, loanId: number, 
     const quantity = input.quantity as number;
     const unitPrice = product.sale_price;
     const amount = quantity * unitPrice;
+    if (amount > INT_MAX) {
+      throw new AmountTooLargeError(`A line item can be at most ${MAX_AMOUNT_TEXT}`);
+    }
 
     const { rows } = await client.query(
       `INSERT INTO loan_line_items (loan_id, product_id, description, quantity, unit_price, amount)

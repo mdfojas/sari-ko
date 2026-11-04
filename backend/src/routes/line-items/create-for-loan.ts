@@ -1,7 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { insertLineItem, ProductNotFoundError, type CreateLineItemInput } from '../../queries/line-items/index.js';
+import {
+  AmountTooLargeError,
+  assertLoanTotalWithinLimit,
+  insertLineItem,
+  ProductNotFoundError,
+  type CreateLineItemInput,
+} from '../../queries/line-items/index.js';
 import { pool } from '../../shared/db.js';
 import { isForeignKeyViolation } from '../../shared/pg-errors.js';
+import { withTransaction } from '../../shared/transaction.js';
 import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreateLineItem } from './validation.js';
 
@@ -19,10 +26,16 @@ export async function createForLoan(
   }
 
   try {
-    const lineItem = await insertLineItem(pool, loanId, body as CreateLineItemInput);
+    // In a transaction so an item that would push the loan past the INTEGER
+    // ceiling is rolled back rather than saved.
+    const lineItem = await withTransaction(pool, async (client) => {
+      const inserted = await insertLineItem(client, loanId, body as CreateLineItemInput);
+      await assertLoanTotalWithinLimit(client, loanId);
+      return inserted;
+    });
     return reply.code(201).send(lineItem);
   } catch (err) {
-    if (err instanceof ProductNotFoundError) {
+    if (err instanceof ProductNotFoundError || err instanceof AmountTooLargeError) {
       return reply.code(400).send({ error: err.message });
     }
     if (isForeignKeyViolation(err)) {

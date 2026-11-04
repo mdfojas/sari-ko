@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createLoanForPerson, findLoanById, type CreateLoanInput } from '../../queries/loans/index.js';
-import { ProductNotFoundError } from '../../queries/line-items/index.js';
+import { AmountTooLargeError, ProductNotFoundError } from '../../queries/line-items/index.js';
 import { isForeignKeyViolation } from '../../shared/pg-errors.js';
 import { requireIdParam } from '../../shared/require-id-param.js';
 import { validateCreateLoan } from './validation.js';
@@ -34,7 +34,7 @@ export async function createForPerson(
     const loan = await findLoanById(loanId);
     return reply.code(201).send(loan);
   } catch (err) {
-    if (err instanceof ProductNotFoundError) {
+    if (err instanceof ProductNotFoundError || err instanceof AmountTooLargeError) {
       return reply.code(400).send({ error: err.message });
     }
     if (isForeignKeyViolation(err)) {
