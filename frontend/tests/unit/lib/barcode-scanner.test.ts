@@ -44,6 +44,7 @@ describe('createBarcodeScanner — native BarcodeDetector path', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).BarcodeDetector;
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   test('releases the camera if stop() is called before getUserMedia resolves', async () => {
@@ -66,6 +67,33 @@ describe('createBarcodeScanner — native BarcodeDetector path', () => {
 
     expect(stopTrack).toHaveBeenCalled();
     expect(container.querySelector('video')).toBeNull();
+  });
+
+  test('does not report a code that was still being detected when the user cancelled', async () => {
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(0), 0) as unknown as number);
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+    const detection = deferred<{ rawValue: string }[]>();
+    const detect = vi.fn().mockReturnValue(detection.promise);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).BarcodeDetector = class {
+      detect = detect;
+    };
+    const fakeStream = { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn().mockResolvedValue(fakeStream) },
+      configurable: true,
+    });
+
+    const scanner = createBarcodeScanner();
+    const onDetect = vi.fn();
+    await scanner.start(document.createElement('div'), onDetect, vi.fn());
+    await vi.waitFor(() => expect(detect).toHaveBeenCalled()); // a detection is now in flight
+
+    await scanner.stop(); // the user cancels...
+    detection.resolve([{ rawValue: '4800016600011' }]); // ...and then that detection finds a code
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(onDetect).not.toHaveBeenCalled();
   });
 
   test('surfaces a BarcodeDetector construction failure via onError and releases the camera', async () => {

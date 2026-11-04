@@ -36,4 +36,30 @@ describe('ConfirmDialog', () => {
     render(<ConfirmDialog title="t" body="b" onConfirm={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
+
+  test('shows an error message as an alert, leaving the dialog open for another try', () => {
+    render(<ConfirmDialog title="t" body="b" error="Product is in use" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Product is in use');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  });
+
+  test('shows no alert when there is no error', () => {
+    render(<ConfirmDialog title="t" body="b" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('while confirming, disables both buttons, relabels the confirm button, and ignores clicks', () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<ConfirmDialog title="t" body="b" isConfirming onConfirm={onConfirm} onCancel={onCancel} />);
+
+    const confirm = screen.getByRole('button', { name: /working/i });
+    expect(confirm).toBeDisabled();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+
+    fireEvent.click(confirm);
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

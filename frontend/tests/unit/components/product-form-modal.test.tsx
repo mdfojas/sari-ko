@@ -123,10 +123,103 @@ describe('ProductFormModal — add mode', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/store/i);
   });
 
+  test.each(['1,5', '1e3', 'abc', '-3', '21.255'])(
+    'rejects the sale price "%s" rather than silently reading it as a different amount',
+    (typed) => {
+      const onSave = vi.fn();
+      renderModal({ onSave });
+      fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: 'New Product' } });
+      fireEvent.change(screen.getByLabelText(/sale price/i), { target: { value: typed } });
+      fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+      fireEvent.change(screen.getByLabelText(/^store price/i), { target: { value: '18.00' } });
+      fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+      expect(onSave).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent(/sale price/i);
+    }
+  );
+
+  test.each(['1,5', '1e3', 'abc'])('rejects the initial store price "%s" the same way', (typed) => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+    fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: 'New Product' } });
+    fireEvent.change(screen.getByLabelText(/sale price/i), { target: { value: '10.00' } });
+    fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+    fireEvent.change(screen.getByLabelText(/^store price/i), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/store price/i);
+  });
+
+  test('rejects a sale price over the largest amount the database can hold, and says what that is', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+    fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: 'New Product' } });
+    fireEvent.change(screen.getByLabelText(/sale price/i), { target: { value: '30000000' } });
+    fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+    fireEvent.change(screen.getByLabelText(/^store price/i), { target: { value: '18.00' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/sale price.*₱21,474,836\.47/i);
+  });
+
+  test('rejects an initial store price over that ceiling too', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+    fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: 'New Product' } });
+    fireEvent.change(screen.getByLabelText(/sale price/i), { target: { value: '10.00' } });
+    fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+    fireEvent.change(screen.getByLabelText(/^store price/i), { target: { value: '30000000' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/store price.*₱21,474,836\.47/i);
+  });
+
+  test('accepts a sale price with thousands separators', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+    fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: 'New Product' } });
+    fireEvent.change(screen.getByLabelText(/sale price/i), { target: { value: '1,234.50' } });
+    fireEvent.change(screen.getByLabelText(/store name/i), { target: { value: 'Puregold' } });
+    fireEvent.change(screen.getByLabelText(/^store price/i), { target: { value: '1,000' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ sale_price: 123450, store_prices: [{ store_name: 'Puregold', price: 100000, selected: true }] })
+    );
+  });
+
   test('scanning a barcode fills in the barcode field', () => {
     renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'stub-scan' }));
     expect(screen.getByLabelText(/barcode/i)).toHaveValue('SCANNED0000001');
+  });
+});
+
+describe('ProductFormModal — saving', () => {
+  test('while saving, disables Save and Cancel, relabels Save, and ignores clicks', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    renderModal({ product: existingProduct, onSave, onClose, isSaving: true });
+
+    const save = screen.getByRole('button', { name: /saving/i });
+    const cancel = screen.getByRole('button', { name: /^cancel$/i });
+    expect(save).toBeDisabled();
+    expect(cancel).toBeDisabled();
+
+    fireEvent.click(save);
+    fireEvent.click(cancel);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('when not saving, the buttons are enabled and read Save / Cancel', () => {
+    renderModal({ product: existingProduct });
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^cancel$/i })).toBeEnabled();
   });
 });
 
@@ -137,6 +230,11 @@ describe('ProductFormModal — edit mode', () => {
     expect(screen.getByLabelText(/barcode/i)).toHaveValue('4800016600011');
     expect(screen.getByLabelText(/sale price/i)).toHaveValue('15.00');
     expect(screen.queryByLabelText(/store name/i)).not.toBeInTheDocument();
+  });
+
+  test('prefills a sale price with cents exactly (2125 centavos -> 21.25)', () => {
+    renderModal({ product: { ...existingProduct, sale_price: 2125 } });
+    expect(screen.getByLabelText(/sale price/i)).toHaveValue('21.25');
   });
 
   test('submitting calls onSave with an UpdateProductInput shape (no store_prices)', () => {

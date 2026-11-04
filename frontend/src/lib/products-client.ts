@@ -44,6 +44,10 @@ export function searchProducts(query: string): Promise<Product[]> {
 }
 
 export async function getProductByBarcode(code: string): Promise<Product | null> {
+  // '.' and '..' can't be barcodes, and a URL path segment of '..' is
+  // normalized away (/products/barcode/.. -> /products/), which would hit the
+  // list endpoint and hand back an array. Treat them as simply not found.
+  if (code === '.' || code === '..') return null;
   try {
     return await apiFetch<Product>(`/products/barcode/${encodeURIComponent(code)}`);
   } catch (err) {

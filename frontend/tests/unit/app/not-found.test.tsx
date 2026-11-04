@@ -29,6 +29,20 @@ describe('NotFound', () => {
     expect(logout).toHaveBeenCalledOnce();
   });
 
+  test('shows no actions while the session is still loading, so Log out does not pop in late', () => {
+    (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, isLoading: true, logout });
+    render(<NotFound />);
+    expect(screen.getByRole('heading', { name: /page not found/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /go home/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
+  });
+
+  test('offers a way home once the session has loaded', () => {
+    (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, isLoading: false, logout });
+    render(<NotFound />);
+    expect(screen.getByRole('link', { name: /go home/i })).toHaveAttribute('href', '/');
+  });
+
   test('does not show a log out button when nobody is signed in', () => {
     (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, isLoading: false, logout });
     render(<NotFound />);

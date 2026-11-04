@@ -61,6 +61,22 @@ describe('getProductByBarcode', () => {
     (apiFetch as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(500, { error: 'boom' }));
     await expect(getProductByBarcode('123')).rejects.toBeInstanceOf(ApiError);
   });
+
+  // '..' is not a barcode, and as a URL path segment it is normalized away:
+  // /products/barcode/.. becomes /products/, the list endpoint, whose array
+  // response would then be mistaken for a single product.
+  test.each(['.', '..'])('never sends the dot-segment "%s" to the server, and reports no match', async (code) => {
+    (apiFetch as ReturnType<typeof vi.fn>).mockClear();
+    const result = await getProductByBarcode(code);
+    expect(result).toBeNull();
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
+  test('still looks up a barcode that merely contains dots', async () => {
+    (apiFetch as ReturnType<typeof vi.fn>).mockResolvedValue(sampleProduct);
+    await getProductByBarcode('12.34');
+    expect(apiFetch).toHaveBeenCalledWith('/products/barcode/12.34');
+  });
 });
 
 describe('createProduct', () => {

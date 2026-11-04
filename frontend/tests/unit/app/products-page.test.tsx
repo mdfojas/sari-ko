@@ -48,14 +48,17 @@ vi.mock('@/components/product-form-modal', () => ({
     onSave,
     onClose,
     error,
+    isSaving,
   }: {
     product?: { id: number };
     onSave: (input: unknown) => void;
     onClose: () => void;
     error?: string | null;
+    isSaving?: boolean;
   }) => (
     <div data-testid="product-form-modal">
       <span data-testid="modal-mode">{product ? 'edit' : 'add'}</span>
+      <span data-testid="modal-state">{isSaving ? 'saving' : 'idle'}</span>
       {error && <span data-testid="modal-error">{error}</span>}
       <button
         onClick={() =>
@@ -74,8 +77,20 @@ vi.mock('@/components/product-form-modal', () => ({
 }));
 
 vi.mock('@/components/confirm-dialog', () => ({
-  ConfirmDialog: ({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) => (
+  ConfirmDialog: ({
+    onConfirm,
+    onCancel,
+    error,
+    isConfirming,
+  }: {
+    onConfirm: () => void;
+    onCancel: () => void;
+    error?: string | null;
+    isConfirming?: boolean;
+  }) => (
     <div data-testid="confirm-dialog">
+      {error && <span data-testid="confirm-error">{error}</span>}
+      <span data-testid="confirm-state">{isConfirming ? 'busy' : 'idle'}</span>
       <button onClick={onConfirm}>confirm-delete</button>
       <button onClick={onCancel}>cancel-delete</button>
     </div>
@@ -101,7 +116,7 @@ const productA = {
 };
 
 function renderPage() {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <TopbarProvider>
@@ -133,6 +148,8 @@ describe('ProductsPage', () => {
     renderPage();
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/my-ledger'));
     expect(screen.queryByText('Lucky Me Pancit Canton')).not.toBeInTheDocument();
+    // ...and doesn't even fire the product search it was never going to show.
+    expect(resolveProductSearch).not.toHaveBeenCalled();
   });
 
   test('renders normally for a store_owner', async () => {
@@ -248,6 +265,85 @@ describe('ProductsPage', () => {
     expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
   });
 
+  describe('error and in-flight states', () => {
+    test('a failing search shows the error, not an empty catalog', async () => {
+      (resolveProductSearch as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(500, { error: 'db down' }));
+      renderPage();
+      expect(await screen.findByRole('alert')).toHaveTextContent('db down');
+      expect(screen.queryByTestId('products-table')).not.toBeInTheDocument();
+    });
+
+    test('a failed delete shows its error inside the confirmation, which stays open', async () => {
+      (deleteProduct as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(409, { error: 'Product is in use' }));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'delete-1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'confirm-delete' }));
+
+      expect(await screen.findByTestId('confirm-error')).toHaveTextContent('Product is in use');
+      expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+    });
+
+    test('a stale delete error is cleared when the confirmation is reopened', async () => {
+      (deleteProduct as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(409, { error: 'Product is in use' }));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'delete-1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'confirm-delete' }));
+      await screen.findByTestId('confirm-error');
+
+      fireEvent.click(screen.getByRole('button', { name: 'cancel-delete' }));
+      fireEvent.click(screen.getByRole('button', { name: 'delete-1' }));
+      expect(screen.queryByTestId('confirm-error')).not.toBeInTheDocument();
+    });
+
+    test('the delete confirmation is marked busy while the request is in flight', async () => {
+      (deleteProduct as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'delete-1' }));
+      expect(screen.getByTestId('confirm-state')).toHaveTextContent('idle');
+      fireEvent.click(screen.getByRole('button', { name: 'confirm-delete' }));
+      await waitFor(() => expect(screen.getByTestId('confirm-state')).toHaveTextContent('busy'));
+    });
+
+    test('the add form is marked saving while the create request is in flight', async () => {
+      (createProduct as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: /add product/i }));
+      expect(screen.getByTestId('modal-state')).toHaveTextContent('idle');
+      fireEvent.click(screen.getByRole('button', { name: 'save' }));
+      await waitFor(() => expect(screen.getByTestId('modal-state')).toHaveTextContent('saving'));
+    });
+
+    test('the edit form is marked saving while the update request is in flight', async () => {
+      (updateProduct as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'edit-1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'save' }));
+      await waitFor(() => expect(screen.getByTestId('modal-state')).toHaveTextContent('saving'));
+    });
+  });
+
+  describe('search typing', () => {
+    test('waits for typing to pause: only the final text is searched, not every keystroke', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+      (resolveProductSearch as ReturnType<typeof vi.fn>).mockClear();
+
+      const input = screen.getByLabelText(/search products/i);
+      fireEvent.change(input, { target: { value: 'c' } });
+      fireEvent.change(input, { target: { value: 'co' } });
+      fireEvent.change(input, { target: { value: 'coc' } });
+
+      await waitFor(() => expect(resolveProductSearch).toHaveBeenCalledWith('coc'));
+      expect(resolveProductSearch).toHaveBeenCalledTimes(1);
+      expect(input).toHaveValue('coc');
+    });
+  });
+
   describe('paging', () => {
     const many = Array.from({ length: 12 }, (_, i) => ({
       ...productA,
@@ -298,6 +394,28 @@ describe('ProductsPage', () => {
 
       expect(shownCount()).toBe(12);
       expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).not.toBeInTheDocument();
+    });
+
+    test('a new search starts back at the first batch instead of staying expanded', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Load 5 more' }));
+      expect(shownCount()).toBe(10);
+
+      fireEvent.change(screen.getByLabelText(/search products/i), { target: { value: 'product' } });
+      await waitFor(() => expect(resolveProductSearch).toHaveBeenCalledWith('product'));
+      await waitFor(() => expect(shownCount()).toBe(5));
+    });
+
+    test('changing the filter starts back at the first batch instead of staying expanded', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Product 1')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Load 5 more' }));
+      expect(shownCount()).toBe(10);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Has barcode' }));
+
+      expect(shownCount()).toBe(5);
     });
 
     test('says how many of the matches are showing', async () => {

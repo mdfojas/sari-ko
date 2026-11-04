@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { pesosToCentavos } from '@/lib/money';
+import { centavosToPesoInput, parsePesoInput } from '@/lib/money';
 import { listDistinctStoreNames } from '@/lib/store-prices-client';
 import { BarcodeScannerButton } from '@/components/barcode-scanner-button';
 import { Modal } from '@/components/modal';
@@ -21,7 +21,7 @@ export function ProductFormModal({ product, onSave, onClose, error, isSaving = f
   const [name, setName] = useState(product?.name ?? '');
   const [barcode, setBarcode] = useState(product?.barcode ?? '');
   const [aliases, setAliases] = useState(product?.other_names.join(', ') ?? '');
-  const [salePrice, setSalePrice] = useState(product ? (product.sale_price / 100).toFixed(2) : '');
+  const [salePrice, setSalePrice] = useState(product ? centavosToPesoInput(product.sale_price) : '');
   const [storeName, setStoreName] = useState('');
   const [storePrice, setStorePrice] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -38,9 +38,9 @@ export function ProductFormModal({ product, onSave, onClose, error, isSaving = f
       setValidationError('Name is required.');
       return;
     }
-    const salePriceCentavos = pesosToCentavos(salePrice);
-    if (salePriceCentavos <= 0) {
-      setValidationError('Sale price must be greater than ₱0.');
+    const salePriceCentavos = parsePesoInput(salePrice);
+    if (salePriceCentavos === null || salePriceCentavos <= 0) {
+      setValidationError('Sale price must be greater than ₱0 and at most ₱21,474,836.47, like 21.25.');
       return;
     }
 
@@ -60,9 +60,11 @@ export function ProductFormModal({ product, onSave, onClose, error, isSaving = f
       return;
     }
 
-    const storePriceCentavos = pesosToCentavos(storePrice);
-    if (!storeName.trim() || storePriceCentavos <= 0) {
-      setValidationError('The initial store name and a store price greater than ₱0 are required.');
+    const storePriceCentavos = parsePesoInput(storePrice);
+    if (!storeName.trim() || storePriceCentavos === null || storePriceCentavos <= 0) {
+      setValidationError(
+        'The initial store name and a store price between ₱0.01 and ₱21,474,836.47 (like 12.00) are required.'
+      );
       return;
     }
     setValidationError(null);

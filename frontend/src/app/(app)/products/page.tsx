@@ -43,6 +43,7 @@ function extractErrorMessage(err: unknown): string {
 export default function ProductsPage() {
   useRequireRole(ALLOWED_ROLES);
   const { user } = useAuth();
+  const allowed = Boolean(user && ALLOWED_ROLES.includes(user.role));
   const queryClient = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [filter, setFilter] = useState<ProductFilter>('all');
@@ -63,6 +64,9 @@ export default function ProductsPage() {
   } = useQuery({
     queryKey: ['products', debouncedSearchText],
     queryFn: () => resolveProductSearch(debouncedSearchText),
+    // Don't fetch for someone who is about to be redirected away and will
+    // never see the result.
+    enabled: allowed,
   });
 
   const matches = data?.matches ?? [];
@@ -117,7 +121,7 @@ export default function ProductsPage() {
     }
   }
 
-  if (!user || !ALLOWED_ROLES.includes(user.role)) {
+  if (!allowed) {
     return null;
   }
 

@@ -63,6 +63,9 @@ function createNativeScanner(): BarcodeScanner {
           if (!video || stopped) return;
           try {
             const results = await detector.detect(video);
+            // stop() may have landed while that detection was in flight; a
+            // cancelled scan must not still fill in the caller's search box.
+            if (stopped) return;
             if (results.length > 0) {
               onDetect(results[0].rawValue);
               return;
