@@ -8,6 +8,7 @@ const person = (id: number, name: string, has_account = false): Person => ({
   name,
   contact: null,
   has_account,
+  balance: 0,
   created_at: '',
   updated_at: '',
 });

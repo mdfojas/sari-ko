@@ -42,8 +42,8 @@ const storeOwner = account(2, 'storeowner', 'store_owner');
 const customer = account(3, 'juandelacruz', 'customer', 1);
 
 const persons: Person[] = [
-  { id: 1, name: 'Juan Dela Cruz', contact: null, has_account: true, created_at: '', updated_at: '' },
-  { id: 2, name: 'Maria Santos', contact: null, has_account: false, created_at: '', updated_at: '' },
+  { id: 1, name: 'Juan Dela Cruz', contact: null, has_account: true, balance: 0, created_at: '', updated_at: '' },
+  { id: 2, name: 'Maria Santos', contact: null, has_account: false, balance: 0, created_at: '', updated_at: '' },
 ];
 
 function signInAs(role: Role) {
