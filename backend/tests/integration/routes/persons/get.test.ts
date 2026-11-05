@@ -33,6 +33,7 @@ describe('GET /persons/:id', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().name).toBe('Juan Dela Cruz');
+    expect(response.json().balance).toBe(0);
   });
 
   it('returns 404 for an unknown person id', async () => {

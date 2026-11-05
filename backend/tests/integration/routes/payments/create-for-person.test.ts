@@ -62,4 +62,21 @@ describe('POST /persons/:id/payments', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it.each([
+    ['an amount over the INTEGER ceiling', 3_000_000_000, 'amount can be at most ₱21,474,836.47'],
+    ['a fractional amount', 12.5, 'amount must be a whole number of centavos'],
+  ])('returns 400 with a message, not a database 500, for %s', async (_label, amount, message) => {
+    const personId = await createPerson('Pays Oddly');
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: `/persons/${personId}/payments`,
+      payload: { amount },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toBe(message);
+    const { rows } = await pool.query(`SELECT * FROM payments WHERE person_id = $1`, [personId]);
+    expect(rows).toHaveLength(0);
+  });
 });

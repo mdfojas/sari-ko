@@ -6,8 +6,16 @@ export interface CreatePersonInput {
   contact?: string | null;
 }
 
+// `balance` is loans minus payments, the same quantity as the ledger's last
+// running balance (see getBalanceForPerson) — computed in one query so a list
+// of persons doesn't need a balance request per row.
 const HAS_ACCOUNT_SELECT = `
-  SELECT p.*, EXISTS (SELECT 1 FROM accounts a WHERE a.person_id = p.id) AS has_account
+  SELECT p.*,
+    EXISTS (SELECT 1 FROM accounts a WHERE a.person_id = p.id) AS has_account,
+    (
+      COALESCE((SELECT SUM(lli.amount) FROM loan_line_items lli JOIN loans l ON l.id = lli.loan_id WHERE l.person_id = p.id), 0)
+      - COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.person_id = p.id), 0)
+    )::float8 AS balance
   FROM persons p
 `;
 
@@ -63,6 +71,8 @@ export async function deletePerson(id: number): Promise<number> {
 }
 
 export interface LedgerEntry {
+  // The loan's or payment's own id (per `type`) — lets a client drill into it.
+  id: number;
   date: Date;
   type: 'loan' | 'payment';
   description: string;
@@ -77,7 +87,7 @@ export async function getLedgerForPerson(personId: number): Promise<LedgerEntry[
   const { rows: loanRows } = await pool.query(
     `SELECT l.id, l.created_at,
        COALESCE(STRING_AGG(lli.description, ', '), '') AS description,
-       COALESCE(SUM(lli.amount), 0)::integer AS amount
+       COALESCE(SUM(lli.amount), 0)::float8 AS amount
      FROM loans l
      LEFT JOIN loan_line_items lli ON lli.loan_id = l.id
      WHERE l.person_id = $1
@@ -91,12 +101,14 @@ export async function getLedgerForPerson(personId: number): Promise<LedgerEntry[
 
   const entries: Omit<LedgerEntry, 'running_balance'>[] = [
     ...loanRows.map((row) => ({
+      id: row.id,
       date: row.created_at,
       type: 'loan' as const,
       description: row.description,
       amount: row.amount,
     })),
     ...paymentRows.map((row) => ({
+      id: row.id,
       date: row.created_at,
       type: 'payment' as const,
       description: row.description,

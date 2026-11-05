@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { pool } from '../../shared/db.js';
 import { buildSetClause } from '../../shared/sql.js';
 import { withTransaction } from '../../shared/transaction.js';
-import { insertLineItem, type CreateLineItemInput } from '../line-items/index.js';
+import { assertLoanTotalWithinLimit, insertLineItem, type CreateLineItemInput } from '../line-items/index.js';
 
 export interface CreateLoanInput {
   note?: string | null;
@@ -15,7 +15,7 @@ export interface UpdateLoanInput {
 
 const LOAN_SELECT = `
   SELECT l.id, l.person_id, l.note, l.created_at, l.updated_at,
-    COALESCE((SELECT SUM(amount) FROM loan_line_items WHERE loan_id = l.id), 0)::integer AS total
+    COALESCE((SELECT SUM(amount) FROM loan_line_items WHERE loan_id = l.id), 0)::float8 AS total
   FROM loans l
 `;
 
@@ -43,6 +43,8 @@ export async function createLoanForPerson(personId: number, input: CreateLoanInp
     for (const lineItem of input.line_items) {
       await insertLineItem(client, loanId, lineItem);
     }
+    // Inside the transaction: an over-limit loan is rolled back, not saved.
+    await assertLoanTotalWithinLimit(client, loanId);
 
     return loanId;
   });

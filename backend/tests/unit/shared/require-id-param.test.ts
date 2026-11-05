@@ -1,46 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { FastifyReply } from 'fastify';
 import { requireIdParam } from '../../../src/shared/require-id-param.js';
 
-function fakeReply() {
-  const state: { statusCode?: number; body?: unknown } = {};
-  const reply = {
-    code(code: number) {
-      state.statusCode = code;
-      return reply;
-    },
-    send(body: unknown) {
-      state.body = body;
-      return reply;
-    },
-  } as unknown as import('fastify').FastifyReply;
-  return { reply, state };
-}
+const replyStub = () => {
+  const send = vi.fn();
+  const code = vi.fn().mockReturnValue({ send });
+  return { reply: { code } as unknown as FastifyReply, code, send };
+};
 
 describe('requireIdParam', () => {
-  it('returns the parsed number for a valid positive integer string', () => {
-    const { reply } = fakeReply();
-    expect(requireIdParam('42', reply)).toBe(42);
+  it.each([['1', 1], ['42', 42], ['2147483647', 2_147_483_647]])('accepts "%s"', (value, expected) => {
+    const { reply, code } = replyStub();
+    expect(requireIdParam(value, reply)).toBe(expected);
+    expect(code).not.toHaveBeenCalled();
   });
 
-  it('returns null and sends 400 for a non-numeric string', () => {
-    const { reply, state } = fakeReply();
-    expect(requireIdParam('abc', reply)).toBeNull();
-    expect(state.statusCode).toBe(400);
-  });
-
-  it('returns null and sends 400 for a decimal', () => {
-    const { reply, state } = fakeReply();
-    expect(requireIdParam('1.5', reply)).toBeNull();
-    expect(state.statusCode).toBe(400);
-  });
-
-  it('returns null and sends 400 for zero or negative numbers', () => {
-    const { reply, state } = fakeReply();
-    expect(requireIdParam('0', reply)).toBeNull();
-    expect(state.statusCode).toBe(400);
-
-    const { reply: reply2, state: state2 } = fakeReply();
-    expect(requireIdParam('-5', reply2)).toBeNull();
-    expect(state2.statusCode).toBe(400);
+  // The ids are INTEGER columns: a larger number would reach Postgres as an
+  // out-of-range error and come back as a 500.
+  it.each(['abc', '', '0', '-1', '1.5', '2147483648', '3000000000', '1e10'])('rejects "%s" with a 400', (value) => {
+    const { reply, code, send } = replyStub();
+    expect(requireIdParam(value, reply)).toBeNull();
+    expect(code).toHaveBeenCalledWith(400);
+    expect(send).toHaveBeenCalledWith({ error: 'id must be a positive integer' });
   });
 });

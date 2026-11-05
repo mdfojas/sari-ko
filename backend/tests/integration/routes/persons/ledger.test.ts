@@ -57,4 +57,24 @@ describe('GET /persons/:id/ledger', () => {
     const balances = response.json().map((entry: { running_balance: number }) => entry.running_balance);
     expect(balances).toEqual([500, 1725, 725, 1025, 0]);
   });
+
+  it('includes the loan id or payment id on each entry, so a client can drill into it', async () => {
+    const { rows: personRows } = await pool.query(`INSERT INTO persons (name) VALUES ('Juan Dela Cruz') RETURNING id`);
+    const personId = personRows[0].id;
+    const { rows: loan } = await pool.query(
+      `INSERT INTO loans (person_id, created_at) VALUES ($1, '2026-01-01') RETURNING id`,
+      [personId],
+    );
+    await pool.query(`INSERT INTO loan_line_items (loan_id, description, amount) VALUES ($1, 'rice', 500)`, [loan[0].id]);
+    const { rows: payment } = await pool.query(
+      `INSERT INTO payments (person_id, amount, created_at) VALUES ($1, 200, '2026-01-02') RETURNING id`,
+      [personId],
+    );
+
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/persons/${personId}/ledger` });
+
+    const entries = response.json();
+    expect(entries[0]).toMatchObject({ type: 'loan', id: loan[0].id });
+    expect(entries[1]).toMatchObject({ type: 'payment', id: payment[0].id });
+  });
 });

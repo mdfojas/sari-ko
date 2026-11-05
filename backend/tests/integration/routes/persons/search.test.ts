@@ -37,4 +37,15 @@ describe('GET /persons/search', () => {
     expect(response.json()[0].has_account).toBe(false);
     expect(response.json()[0].id).toBe(rows[0].id);
   });
+
+  it('includes balance, same as GET /persons', async () => {
+    const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ('Juan Dela Cruz') RETURNING id`);
+    const { rows: loan } = await pool.query(`INSERT INTO loans (person_id) VALUES ($1) RETURNING id`, [rows[0].id]);
+    await pool.query(`INSERT INTO loan_line_items (loan_id, description, amount) VALUES ($1, 'rice', 800)`, [loan[0].id]);
+    await pool.query(`INSERT INTO payments (person_id, amount) VALUES ($1, 300)`, [rows[0].id]);
+
+    const response = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: '/persons/search?q=dela' });
+
+    expect(response.json()[0].balance).toBe(500);
+  });
 });

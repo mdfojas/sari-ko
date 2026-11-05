@@ -86,4 +86,77 @@ describe('POST /loans/:id/line-items', () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it('rejects an item that would push the loan total past the INTEGER ceiling, leaving the loan unchanged', async () => {
+    const loanId = await createLoan();
+    const add = (amount: number) =>
+      app.inject({
+        headers: authHeaderFor('admin'),
+        method: 'POST',
+        url: `/loans/${loanId}/line-items`,
+        payload: { description: 'big', amount },
+      });
+
+    expect((await add(1_500_000_000)).statusCode).toBe(201);
+    const over = await add(1_500_000_000);
+
+    expect(over.statusCode).toBe(400);
+    expect(over.json().error).toBe('The loan total can be at most ₱21,474,836.47');
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM loan_line_items WHERE loan_id = $1`, [loanId]);
+    expect(rows[0].n).toBe(1);
+    const loan = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}` });
+    expect(loan.statusCode).toBe(200);
+    expect(loan.json().total).toBe(1_500_000_000);
+  });
+
+  it.each([
+    ['an amount over the ceiling', { description: 'big', amount: 3_000_000_000 }],
+    ['a fractional amount', { description: 'frac', amount: 12.5 }],
+    ['a zero amount', { description: 'zero', amount: 0 }],
+    ['a catalog quantity of zero', { product_id: 1, quantity: 0 }],
+  ])('returns 400, not a database 500, for %s', async (_label, payload) => {
+    const loanId = await createLoan();
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: `/loans/${loanId}/line-items`,
+      payload,
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('holds the ceiling under concurrent adds: simultaneous requests cannot each see room and together exceed it', async () => {
+    const loanId = await createLoan();
+    await pool.query(`INSERT INTO loan_line_items (loan_id, description, amount) VALUES ($1, 'base', 1000000000)`, [loanId]);
+
+    // 1,000,000,000 already; each add is 500,000,000, so exactly two fit under 2,147,483,647.
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        app.inject({
+          headers: authHeaderFor('admin'),
+          method: 'POST',
+          url: `/loans/${loanId}/line-items`,
+          payload: { description: `add ${i}`, amount: 500_000_000 },
+        }),
+      ),
+    );
+
+    const statuses = results.map((r) => r.statusCode).sort();
+    expect(statuses.filter((s) => s === 201)).toHaveLength(2);
+    expect(statuses.filter((s) => s === 400)).toHaveLength(4);
+    const { rows } = await pool.query(`SELECT SUM(amount)::float8 AS total FROM loan_line_items WHERE loan_id = $1`, [loanId]);
+    expect(rows[0].total).toBe(2_000_000_000);
+    const loan = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}` });
+    expect(loan.statusCode).toBe(200);
+  });
+
+  it('returns 404 for a loan that does not exist', async () => {
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: '/loans/999999/line-items',
+      payload: { description: 'x', amount: 100 },
+    });
+    expect(response.statusCode).toBe(404);
+  });
 });

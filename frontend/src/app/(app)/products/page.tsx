@@ -13,7 +13,7 @@ import { ProductFormModal } from '@/components/product-form-modal';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { resolveProductSearch } from '@/lib/product-search';
 import { applyProductFilter, type ProductFilter } from '@/lib/product-filters';
-import { ApiError } from '@/lib/api-client';
+import { extractErrorMessage } from '@/lib/error-message';
 import {
   createProduct,
   deleteProduct,
@@ -31,14 +31,6 @@ const FILTER_LABELS: Record<ProductFilter, string> = {
   all: 'All',
   'has-barcode': 'Has barcode',
 };
-
-function extractErrorMessage(err: unknown): string {
-  if (err instanceof ApiError) {
-    const body = err.body as { error?: string } | null;
-    if (body?.error) return body.error;
-  }
-  return 'Something went wrong. Please try again.';
-}
 
 export default function ProductsPage() {
   useRequireRole(ALLOWED_ROLES);

@@ -1,4 +1,13 @@
 import type { CreateStorePriceInput, UpdateProductInput } from '../../queries/products/index.js';
+import {
+  hasNul,
+  INT_MAX,
+  isNonBlankString,
+  isPlainObject,
+  isPositiveInteger,
+  MAX_AMOUNT_TEXT,
+  NUL_MESSAGE,
+} from '../../shared/validation.js';
 
 export interface CreateProductBody {
   name?: string;
@@ -8,19 +17,7 @@ export interface CreateProductBody {
   store_prices?: CreateStorePriceInput[];
 }
 
-// Prices are whole centavos stored in INTEGER columns: anything that isn't an
-// integer, or is outside the column's range, would only fail later as an
-// unhandled database error — so it is rejected here with a message instead.
-const INT_MAX = 2_147_483_647; // ₱21,474,836.47
-const MAX_PRICE_TEXT = '₱21,474,836.47';
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-const isPositiveInteger = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0;
-const isNonBlankString = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
-// Postgres refuses a NUL byte in text (error 22021), which would surface as a 500.
-const hasNul = (value: unknown): boolean => typeof value === 'string' && value.includes('\u0000');
-const NUL_MESSAGE = 'Text cannot contain NUL characters';
+const MAX_PRICE_TEXT = MAX_AMOUNT_TEXT;
 
 // A blank barcode is stored as null, not '': the column is UNIQUE, so a second
 // blank one would collide ("barcode already exists"), and an empty string can
