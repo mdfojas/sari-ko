@@ -46,6 +46,10 @@ export function StorePricesDetail({ productId, onBack }: StorePricesDetailProps)
     queryClient.invalidateQueries({ queryKey: ['products'] });
     // The search-first page caches results per query; they carry the sale source.
     queryClient.invalidateQueries({ queryKey: ['store-prices-search'] });
+    // The store filter on the list is built from these.
+    queryClient.invalidateQueries({ queryKey: ['store-prices-at-store'] });
+    // A price can bring a brand-new store into being (typing a store name creates it).
+    queryClient.invalidateQueries({ queryKey: ['stores'] });
     setActionError(null);
   }
 

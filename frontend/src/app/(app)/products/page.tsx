@@ -7,6 +7,7 @@ import { useRequireRole } from '@/hooks/use-auth-guards';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ROUTE_ACCESS } from '@/lib/route-access';
 import { TopbarSlot } from '@/components/topbar-slot';
+import { LoadMoreFooter } from '@/components/load-more-footer';
 import { BarcodeScannerButton } from '@/components/barcode-scanner-button';
 import { ProductsTable } from '@/components/products-table';
 import { ProductFormModal } from '@/components/product-form-modal';
@@ -68,6 +69,11 @@ export default function ProductsPage() {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['products'] });
+    // A product can bring a new store, and deleting one changes how many prices a store has, so
+    // everything that lists or counts stores (and the Store Prices list and its store filter) is stale too.
+    for (const queryKey of [['stores'], ['store-names'], ['store-prices-at-store'], ['store-prices-search']]) {
+      queryClient.invalidateQueries({ queryKey });
+    }
   }
 
   const createMutation = useMutation({
@@ -173,41 +179,17 @@ export default function ProductsPage() {
           />
         )}
         {!isLoading && !isError && filtered.length > 0 && (
-          <div className="flex items-center justify-between gap-4 border-t border-border p-3 text-sm text-text-muted">
-            <span>
-              Showing {shown.length} of {filtered.length}
-            </span>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2">
-                Results per load
-                <select
-                  aria-label="Results per load"
-                  value={pageSize}
-                  onChange={(e) => {
-                    const size = Number(e.target.value);
-                    setPageSize(size);
-                    setRevealed(size);
-                  }}
-                  className="rounded border border-border bg-card px-2 py-1 text-text"
-                >
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {filtered.length > shown.length && (
-                <button
-                  type="button"
-                  onClick={() => setRevealed((r) => r + pageSize)}
-                  className="font-semibold text-accent-dark"
-                >
-                  Load {Math.min(pageSize, filtered.length - shown.length)} more
-                </button>
-              )}
-            </div>
-          </div>
+          <LoadMoreFooter
+            shown={shown.length}
+            total={filtered.length}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setRevealed(size);
+            }}
+            onLoadMore={() => setRevealed((r) => r + pageSize)}
+          />
         )}
       </div>
 

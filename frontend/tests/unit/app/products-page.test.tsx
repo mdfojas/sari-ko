@@ -115,8 +115,11 @@ const productA = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
+let lastInvalidate: { mock: { calls: unknown[][] } };
+
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  lastInvalidate = vi.spyOn(queryClient, 'invalidateQueries');
   return render(
     <QueryClientProvider client={queryClient}>
       <TopbarProvider>
@@ -209,6 +212,27 @@ describe('ProductsPage', () => {
       store_prices: [{ store_name: 'X', price: 100, selected: true }],
     }));
     await waitFor(() => expect(screen.queryByTestId('product-form-modal')).not.toBeInTheDocument());
+  });
+
+  // A new product can bring a new store, and deleting one changes how many prices a store has,
+  // so everything that lists or counts stores must refresh too.
+  test.each([
+    ['creating', async () => {
+      (createProduct as ReturnType<typeof vi.fn>).mockResolvedValue(productA);
+      fireEvent.click(screen.getByRole('button', { name: /add product/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'save' }));
+    }],
+  ])('%s a product refreshes the store lists and counts', async (_label, act) => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Lucky Me Pancit Canton')).toBeInTheDocument());
+    await act();
+
+    await waitFor(() => {
+      const keys = lastInvalidate.mock.calls.map((c: unknown[]) => JSON.stringify((c[0] as { queryKey: unknown[] }).queryKey));
+      for (const key of [['products'], ['stores'], ['store-names'], ['store-prices-at-store'], ['store-prices-search']]) {
+        expect(keys).toContain(JSON.stringify(key));
+      }
+    });
   });
 
   test('a duplicate-barcode 409 shows the error inside the still-open modal instead of crashing', async () => {
