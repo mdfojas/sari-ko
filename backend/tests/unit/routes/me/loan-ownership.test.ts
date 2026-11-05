@@ -10,7 +10,7 @@ describe('checkLoanOwnership', () => {
     expect(checkLoanOwnership(null, 5)).toEqual({ ok: false, status: 404 });
   });
 
-  it('returns 403 when the loan belongs to a different person', () => {
-    expect(checkLoanOwnership(7, 5)).toEqual({ ok: false, status: 403 });
+  it('returns 404, same as a missing loan, when the loan belongs to a different person', () => {
+    expect(checkLoanOwnership(7, 5)).toEqual({ ok: false, status: 404 });
   });
 });

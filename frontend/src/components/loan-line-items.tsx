@@ -6,21 +6,34 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { LoanHistoryModal } from '@/components/loan-history-modal';
 import { extractErrorMessage } from '@/lib/error-message';
 import { deleteLineItem, deleteLoan, getLoan, listLineItems, type LineItem } from '@/lib/loans-client';
+import { scopedKey, type LoanScope } from '@/lib/loan-scope';
+import { getMyLoan, listMyLineItems } from '@/lib/me-client';
 import { peso } from '@/lib/money';
 
 interface LoanLineItemsProps {
   loanId: number;
-  personId: number;
+  // Unused in the customer scope, where there is nothing to invalidate by person.
+  personId?: number;
+  scope?: LoanScope;
 }
 
-export function LoanLineItems({ loanId, personId }: LoanLineItemsProps) {
+export function LoanLineItems({ loanId, personId, scope = 'staff' }: LoanLineItemsProps) {
+  // A customer only ever reads: no delete control, and the /me bridges instead
+  // of the staff endpoints.
+  const readOnly = scope === 'me';
   const queryClient = useQueryClient();
   const [removing, setRemoving] = useState<LineItem | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  const loanQuery = useQuery({ queryKey: ['loan', loanId], queryFn: () => getLoan(loanId) });
-  const itemsQuery = useQuery({ queryKey: ['loan-line-items', loanId], queryFn: () => listLineItems(loanId) });
+  const loanQuery = useQuery({
+    queryKey: scopedKey(scope, 'loan', loanId),
+    queryFn: () => (readOnly ? getMyLoan(loanId) : getLoan(loanId)),
+  });
+  const itemsQuery = useQuery({
+    queryKey: scopedKey(scope, 'loan-line-items', loanId),
+    queryFn: () => (readOnly ? listMyLineItems(loanId) : listLineItems(loanId)),
+  });
 
   const items = itemsQuery.data ?? [];
   // The backend refuses to delete a loan's last line item (it would leave an
@@ -92,19 +105,21 @@ export function LoanLineItems({ loanId, personId }: LoanLineItemsProps) {
                 {item.unit_price !== null && item.quantity !== null && `${item.quantity} × ${peso(item.unit_price)}`}
               </td>
               <td className="py-2 pr-3 text-right tabular-nums text-text">{peso(item.amount)}</td>
-              <td className="py-2 text-right">
-                <button
-                  type="button"
-                  aria-label={`Delete ${item.description}`}
-                  onClick={() => {
-                    setRemoveError(null);
-                    setRemoving(item);
-                  }}
-                  className="px-1 text-text-muted hover:text-text"
-                >
-                  🗑️
-                </button>
-              </td>
+              {!readOnly && (
+                <td className="py-2 text-right">
+                  <button
+                    type="button"
+                    aria-label={`Delete ${item.description}`}
+                    onClick={() => {
+                      setRemoveError(null);
+                      setRemoving(item);
+                    }}
+                    className="px-1 text-text-muted hover:text-text"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -129,7 +144,7 @@ export function LoanLineItems({ loanId, personId }: LoanLineItemsProps) {
         />
       )}
 
-      {showHistory && <LoanHistoryModal loanId={loanId} onClose={() => setShowHistory(false)} />}
+      {showHistory && <LoanHistoryModal loanId={loanId} scope={scope} onClose={() => setShowHistory(false)} />}
     </div>
   );
 }

@@ -5,14 +5,24 @@ import { Modal } from '@/components/modal';
 import { extractErrorMessage } from '@/lib/error-message';
 import { describeHistoryEntry } from '@/lib/loan-history';
 import { getLoanHistory } from '@/lib/loans-client';
+import { scopedKey, type LoanScope } from '@/lib/loan-scope';
+import { getMyLoanHistory } from '@/lib/me-client';
 
 const formatWhen = (iso: string) =>
   new Date(iso).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-export function LoanHistoryModal({ loanId, onClose }: { loanId: number; onClose: () => void }) {
+export function LoanHistoryModal({
+  loanId,
+  scope = 'staff',
+  onClose,
+}: {
+  loanId: number;
+  scope?: LoanScope;
+  onClose: () => void;
+}) {
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['loan-history', loanId],
-    queryFn: () => getLoanHistory(loanId),
+    queryKey: scopedKey(scope, 'loan-history', loanId),
+    queryFn: () => (scope === 'me' ? getMyLoanHistory(loanId) : getLoanHistory(loanId)),
   });
 
   return (

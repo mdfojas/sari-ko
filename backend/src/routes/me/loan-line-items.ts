@@ -11,7 +11,7 @@ export async function loanLineItems(request: FastifyRequest<{ Params: { id: stri
   const ownerId = await findLoanOwnerId(id);
   const check = checkLoanOwnership(ownerId, request.account!.personId!);
   if (!check.ok) {
-    return reply.code(check.status).send({ error: check.status === 404 ? 'Loan not found' : 'Forbidden' });
+    return reply.code(check.status).send({ error: 'Loan not found' });
   }
   return listLineItemsByLoanId(id);
 }
