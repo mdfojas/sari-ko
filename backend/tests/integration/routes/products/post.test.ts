@@ -157,4 +157,53 @@ describe('POST /products', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  describe('stores for the initial prices', () => {
+    const create = (storePrices: unknown) =>
+      app.inject({ headers: authHeaderFor('admin'), method: 'POST', url: '/products', payload: { name: 'P', sale_price: 1000, store_prices: storePrices } });
+    const storeNames = async () => (await pool.query(`SELECT name FROM stores ORDER BY name COLLATE "C"`)).rows.map((r) => r.name);
+
+    it('creates a store for each new name and reuses one that exists, ignoring case', async () => {
+      await app.inject({ headers: authHeaderFor('admin'), method: 'POST', url: '/stores', payload: { name: 'Puregold' } });
+
+      const response = await create([{ store_name: ' puregold ', price: 900, selected: true }, { store_name: 'SM', price: 950 }]);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().selected_store_name).toBe('Puregold');
+      expect(await storeNames()).toEqual(['Puregold', 'SM']);
+    });
+
+    it('rejects an over-long store name and leaves no store behind', async () => {
+      const response = await create([{ store_name: 'x'.repeat(101), price: 900, selected: true }]);
+      expect(response.statusCode).toBe(400);
+      expect(await storeNames()).toEqual([]);
+    });
+  });
+
+  describe('one price per store', () => {
+    const create = (storePrices: unknown) =>
+      app.inject({ headers: authHeaderFor('admin'), method: 'POST', url: '/products', payload: { name: 'P', sale_price: 1000, store_prices: storePrices } });
+
+    it('rejects two prices for the same store in one request (any case), and creates nothing', async () => {
+      const response = await create([{ store_name: 'Puregold', price: 900, selected: true }, { store_name: ' puregold ', price: 950 }]);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('A product can have only one price per store');
+      const { rows } = await pool.query(`SELECT (SELECT COUNT(*)::int FROM products) AS products, (SELECT COUNT(*)::int FROM stores) AS stores`);
+      expect(rows[0]).toEqual({ products: 0, stores: 0 });
+    });
+  });
+
+  it('answers 400, not 500, when two store names differ for JavaScript but are one store for the database (dotted capital I)', async () => {
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: '/products',
+      payload: { name: 'P', sale_price: 1000, store_prices: [{ store_name: '\u0130stanbul', price: 900, selected: true }, { store_name: 'istanbul', price: 950 }] },
+    });
+    expect(response.statusCode, response.body).toBe(400);
+    expect(response.json().error).toBe('A product can have only one price per store');
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM products`);
+    expect(rows[0].n).toBe(0);
+  });
 });

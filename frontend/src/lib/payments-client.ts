@@ -14,6 +14,10 @@ export interface PaymentInput {
   note?: string | null;
 }
 
+export function deletePayment(id: number): Promise<void> {
+  return apiFetch<void>(`/payments/${id}`, { method: 'DELETE' });
+}
+
 export function createPayment(personId: number, input: PaymentInput): Promise<Payment> {
   return apiFetch<Payment>(`/persons/${personId}/payments`, {
     method: 'POST',

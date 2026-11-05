@@ -5,6 +5,8 @@ import * as persons from './persons/index.js';
 import * as loans from './loans/index.js';
 import * as lineItems from './line-items/index.js';
 import * as payments from './payments/index.js';
+import * as stores from './stores/index.js';
+import type { MergeStoreBody, StoreNameBody } from './stores/validation.js';
 import * as accounts from './accounts/index.js';
 import * as auth from './auth/index.js';
 import * as me from './me/index.js';
@@ -120,6 +122,12 @@ export default async function routes(app: FastifyInstance) {
     manageAccounts,
     storePrices.createForProduct,
   );
+  app.get('/stores', manageAccounts, stores.list);
+  app.post<{ Body: StoreNameBody }>('/stores', manageAccounts, stores.create);
+  app.patch<{ Params: { id: string }; Body: StoreNameBody }>('/stores/:id', manageAccounts, stores.rename);
+  app.get<{ Params: { id: string } }>('/stores/:id/store-prices', manageAccounts, stores.prices);
+  app.post<{ Params: { id: string }; Body: MergeStoreBody }>('/stores/:id/merge', manageAccounts, stores.merge);
+  app.delete<{ Params: { id: string } }>('/stores/:id', manageAccounts, stores.destroy);
   app.get('/store-prices/distinct-names', manageAccounts, storePrices.distinctNames);
   app.get<{ Params: { id: string } }>('/store-prices/:id', manageAccounts, storePrices.get);
   app.patch<{ Params: { id: string }; Body: UpdateStorePriceInput }>(

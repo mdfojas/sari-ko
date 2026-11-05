@@ -59,4 +59,13 @@ describe('GET /store-prices/distinct-names', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(['Puregold', 'SM Supermarket']);
   });
+
+  it('also lists a store that was added but has no price yet (so it can be picked)', async () => {
+    await app.inject({ method: 'POST', url: '/stores', headers: authHeaderFor('admin'), payload: { name: 'Public Market' } });
+    await createProduct({ name: 'A', store_prices: [{ store_name: 'Puregold', price: 500, selected: true }] });
+
+    const response = await app.inject({ method: 'GET', url: '/store-prices/distinct-names', headers: authHeaderFor('admin') });
+
+    expect(response.json()).toEqual(['Public Market', 'Puregold']);
+  });
 });

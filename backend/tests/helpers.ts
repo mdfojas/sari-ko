@@ -14,6 +14,11 @@ export async function createProduct(payload: Record<string, unknown>) {
   return response.json();
 }
 
+export async function createStore(name: string) {
+  const response = await app.inject({ method: 'POST', url: '/stores', headers: authHeaderFor('admin'), payload: { name } });
+  return response.json();
+}
+
 export async function createPerson(name = 'Test Person') {
   const { rows } = await pool.query(`INSERT INTO persons (name) VALUES ($1) RETURNING id`, [name]);
   return rows[0].id;

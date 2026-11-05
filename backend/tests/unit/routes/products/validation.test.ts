@@ -6,6 +6,22 @@ import {
   validateUpdateProduct,
 } from '../../../../src/routes/products/validation.js';
 
+describe('validateCreateProduct, one price per store', () => {
+  const base = { name: 'P' };
+
+  it('rejects two prices for the same store, ignoring case and surrounding spaces', () => {
+    expect(
+      validateCreateProduct({ ...base, store_prices: [{ store_name: 'Puregold', price: 100, selected: true }, { store_name: '  PUREGOLD ', price: 200 }] } as never),
+    ).toBe('A product can have only one price per store');
+  });
+
+  it('accepts different stores', () => {
+    expect(
+      validateCreateProduct({ ...base, store_prices: [{ store_name: 'Puregold', price: 100, selected: true }, { store_name: 'SM', price: 200 }] } as never),
+    ).toBeNull();
+  });
+});
+
 describe('validateCreateProduct', () => {
   it('requires a name', () => {
     expect(validateCreateProduct({ store_prices: [{ store_name: 'A', price: 100, selected: true }] })).toBe(

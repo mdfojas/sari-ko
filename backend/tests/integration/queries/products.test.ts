@@ -37,7 +37,11 @@ describe('createProduct — transaction rollback', () => {
     const { rows: products } = await pool.query(`SELECT * FROM products WHERE name = 'Doomed Product'`);
     expect(products).toHaveLength(0);
 
-    const { rows: storePrices } = await pool.query(`SELECT * FROM store_prices WHERE store_name = 'Good Store'`);
+    const { rows: storePrices } = await pool.query(`SELECT * FROM store_prices`);
     expect(storePrices).toHaveLength(0);
+
+    // The stores created for those prices roll back with them.
+    const { rows: stores } = await pool.query(`SELECT * FROM stores`);
+    expect(stores).toHaveLength(0);
   });
 });

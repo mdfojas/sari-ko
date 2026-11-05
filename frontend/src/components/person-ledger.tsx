@@ -1,13 +1,15 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { LoanLineItems } from '@/components/loan-line-items';
 import { extractErrorMessage } from '@/lib/error-message';
 import { peso } from '@/lib/money';
 import { scopedKey } from '@/lib/loan-scope';
 import { getMyLedger } from '@/lib/me-client';
-import { getLedger } from '@/lib/persons-client';
+import { deletePayment } from '@/lib/payments-client';
+import { getLedger, type LedgerEntry } from '@/lib/persons-client';
 
 // Staff view of one person's ledger, or (scope "me") the signed-in customer's own,
 // which is read-only and needs no person id.
@@ -16,10 +18,27 @@ type PersonLedgerProps = { scope?: 'staff'; personId: number } | { scope: 'me'; 
 export function PersonLedger(props: PersonLedgerProps) {
   const scope = props.scope ?? 'staff';
   const personId = props.personId;
+  const queryClient = useQueryClient();
   const [expandedLoanId, setExpandedLoanId] = useState<number | null>(null);
+  const [removingPayment, setRemovingPayment] = useState<LedgerEntry | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  // Customers only read; staff can remove a payment (a loan is removed by deleting its items).
+  const canDelete = scope === 'staff';
   const { data, isLoading, isError, error } = useQuery({
     queryKey: scope === 'me' ? scopedKey('me', 'ledger') : ['ledger', personId],
     queryFn: () => (scope === 'me' ? getMyLedger() : getLedger(personId as number)),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (payment: LedgerEntry) => deletePayment(payment.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ledger', personId] });
+      // The persons list carries each person's balance.
+      queryClient.invalidateQueries({ queryKey: ['persons'] });
+      setRemovingPayment(null);
+      setRemoveError(null);
+    },
+    onError: (err: unknown) => setRemoveError(extractErrorMessage(err)),
   });
 
   if (isLoading) return <p className="p-4 text-sm text-text-muted">Loading…</p>;
@@ -35,6 +54,7 @@ export function PersonLedger(props: PersonLedgerProps) {
   }
 
   return (
+    <>
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
@@ -43,6 +63,7 @@ export function PersonLedger(props: PersonLedgerProps) {
           <th className="px-3 py-2">Description</th>
           <th className="px-3 py-2 text-right">Amount</th>
           <th className="px-3 py-2 text-right">Balance</th>
+          {canDelete && <th className="w-10 px-3 py-2" />}
         </tr>
       </thead>
       <tbody>
@@ -73,11 +94,28 @@ export function PersonLedger(props: PersonLedgerProps) {
                   {isLoan ? `+${peso(entry.amount)}` : `−${peso(Math.abs(entry.amount))}`}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold tabular-nums text-text">{peso(entry.running_balance)}</td>
+                {canDelete && (
+                  <td className="px-3 py-2 text-right">
+                    {!isLoan && (
+                      <button
+                        type="button"
+                        aria-label={`Delete payment of ${peso(Math.abs(entry.amount))}`}
+                        onClick={() => {
+                          setRemoveError(null);
+                          setRemovingPayment(entry);
+                        }}
+                        className="px-1 text-text-muted hover:text-text"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
               {isExpanded && (
                 <tr>
                   <td />
-                  <td colSpan={4} className="px-3">
+                  <td colSpan={canDelete ? 5 : 4} className="px-3">
                     {scope === 'me' ? (
                       <LoanLineItems loanId={entry.id} scope="me" />
                     ) : (
@@ -91,5 +129,21 @@ export function PersonLedger(props: PersonLedgerProps) {
         })}
       </tbody>
     </table>
+
+    {removingPayment && (
+      <ConfirmDialog
+        title="Delete this payment?"
+        body={`"${removingPayment.description || 'Payment'}" (${peso(Math.abs(removingPayment.amount))}) will be removed from this person's ledger, and their balance goes up by that amount. This cannot be undone.`}
+        confirmLabel="Delete Payment"
+        error={removeError}
+        isConfirming={removeMutation.isPending}
+        onConfirm={() => removeMutation.mutate(removingPayment)}
+        onCancel={() => {
+          setRemovingPayment(null);
+          setRemoveError(null);
+        }}
+      />
+    )}
+    </>
   );
 }
