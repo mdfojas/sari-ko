@@ -64,7 +64,7 @@ function renderPage() {
       </TopbarProvider>
     </QueryClientProvider>
   );
-  return { invalidate };
+  return { invalidate, queryClient };
 }
 
 async function openProfile(username: string) {
@@ -123,6 +123,15 @@ describe('AccountsPage', () => {
     });
   });
 
+  describe('when the people list fails to load', () => {
+    test('the table says linked names are unavailable instead of silently showing dashes', async () => {
+      (listPersons as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(500, { error: 'boom' }));
+      renderPage();
+      expect(await screen.findByRole('alert')).toHaveTextContent(/linked person names are unavailable.*boom/i);
+      expect(screen.getByText('juandelacruz')).toBeInTheDocument();
+    });
+  });
+
   describe('permissions in the profile popup', () => {
     test('an admin can reset and delete every account', async () => {
       renderPage();
@@ -175,6 +184,20 @@ describe('AccountsPage', () => {
       expect(screen.queryByText('Generated99')).not.toBeInTheDocument();
     });
 
+    test('does not leave the generated password in the mutation cache after Done', async () => {
+      (resetAccountPassword as ReturnType<typeof vi.fn>).mockResolvedValue({ password: 'Generated99' });
+      const { queryClient } = renderPage();
+      const resetDialog = await startReset();
+      fireEvent.click(within(resetDialog).getByRole('button', { name: /^reset password$/i }));
+      const result = await screen.findByRole('dialog', { name: /password reset/i });
+      fireEvent.click(within(result).getByRole('button', { name: /done/i }));
+
+      await waitFor(() => {
+        const cached = queryClient.getMutationCache().getAll().map((m) => JSON.stringify(m.state.data ?? null));
+        expect(cached.join('')).not.toContain('Generated99');
+      });
+    });
+
     test('sends an explicit password when one is typed', async () => {
       (resetAccountPassword as ReturnType<typeof vi.fn>).mockResolvedValue({ password: 'mypassword1' });
       renderPage();
@@ -182,6 +205,21 @@ describe('AccountsPage', () => {
       fireEvent.change(within(resetDialog).getByLabelText(/new password/i), { target: { value: 'mypassword1' } });
       fireEvent.click(within(resetDialog).getByRole('button', { name: /^reset password$/i }));
       await waitFor(() => expect(resetAccountPassword).toHaveBeenCalledWith(3, 'mypassword1'));
+    });
+
+    test('a failed reset with a typed password does not keep it in the mutation cache after Cancel', async () => {
+      (resetAccountPassword as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(403, { error: 'Forbidden' }));
+      const { queryClient } = renderPage();
+      const resetDialog = await startReset();
+      fireEvent.change(within(resetDialog).getByLabelText(/new password/i), { target: { value: 'typedsecret1' } });
+      fireEvent.click(within(resetDialog).getByRole('button', { name: /^reset password$/i }));
+      await within(resetDialog).findByRole('alert');
+      fireEvent.click(within(resetDialog).getByRole('button', { name: /cancel/i }));
+
+      await waitFor(() => {
+        const cached = queryClient.getMutationCache().getAll().map((m) => JSON.stringify(m.state.variables ?? null));
+        expect(cached.join('')).not.toContain('typedsecret1');
+      });
     });
 
     test("keeps the form open and shows the server's error if the reset fails", async () => {
@@ -288,6 +326,25 @@ describe('AccountsPage', () => {
 
       expect(await within(form).findByRole('alert')).toHaveTextContent('An account with this username already exists');
       expect(screen.getByRole('dialog', { name: /create account/i })).toBeInTheDocument();
+    });
+
+    test('a failed create with a typed password does not keep it in the mutation cache after Cancel', async () => {
+      (createAccount as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new ApiError(409, { error: 'An account with this username already exists' })
+      );
+      const { queryClient } = renderPage();
+      const form = await openCreate();
+      fireEvent.change(within(form).getByLabelText(/^role$/i), { target: { value: 'store_owner' } });
+      fireEvent.change(within(form).getByLabelText(/^username/i), { target: { value: 'admin' } });
+      fireEvent.change(within(form).getByLabelText(/password/i), { target: { value: 'typedsecret1' } });
+      fireEvent.click(within(form).getByRole('button', { name: /^create account$/i }));
+      await within(form).findByRole('alert');
+      fireEvent.click(within(form).getByRole('button', { name: /cancel/i }));
+
+      await waitFor(() => {
+        const cached = queryClient.getMutationCache().getAll().map((m) => JSON.stringify(m.state.variables ?? null));
+        expect(cached.join('')).not.toContain('typedsecret1');
+      });
     });
 
     test('a store_owner is only offered the customer role', async () => {

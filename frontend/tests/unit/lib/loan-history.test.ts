@@ -55,4 +55,15 @@ describe('describeHistoryEntry', () => {
   test('an update that only touched updated_at is still described, not blank', () => {
     expect(describeHistoryEntry(entry({ action: 'update', changes: { updated_at: { from: 'a', to: 'b' } } }))).toBe('Loan updated');
   });
+
+  test.each([null, 'oops', 5])('does not throw on malformed changes (%s)', (changes) => {
+    expect(describeHistoryEntry(entry({ action: 'update', changes: changes as never }))).toBe('Loan updated');
+    expect(describeHistoryEntry(entry({ entity_type: 'loan_line_item', action: 'create', changes: changes as never }))).toBe('Added "" (₱0.00)');
+  });
+
+  test('does not throw when a changed field is not a { from, to } pair', () => {
+    expect(describeHistoryEntry(entry({ action: 'update', changes: { note: 'x', amount: null } as never }))).toBe(
+      'Loan changed: note (none) → (none); amount (none) → (none)'
+    );
+  });
 });

@@ -57,7 +57,10 @@ export default function AccountsPage() {
     queryClient.invalidateQueries({ queryKey: ['persons'] });
   }
 
+  // gcTime 0: a finished mutation holds the generated password in its data, so
+  // it must leave the cache as soon as the credential popup is dismissed.
   const createMutation = useMutation({
+    gcTime: 0,
     mutationFn: (input: CreateAccountInput) => createAccount(input),
     onSuccess: (created) => {
       refresh();
@@ -69,6 +72,7 @@ export default function AccountsPage() {
   });
 
   const resetMutation = useMutation({
+    gcTime: 0,
     mutationFn: ({ id, password }: { id: number; username: string; password?: string }) =>
       resetAccountPassword(id, password),
     onSuccess: (result, variables) => {
@@ -128,6 +132,12 @@ export default function AccountsPage() {
           + Create Account
         </button>
       </TopbarSlot>
+
+      {personsQuery.isError && (
+        <p role="alert" className="mb-3 text-sm text-danger">
+          Couldn&apos;t load people, so linked person names are unavailable: {extractErrorMessage(personsQuery.error)}
+        </p>
+      )}
 
       <div className="rounded-lg border border-border bg-card">
         {accountsQuery.isLoading ? (
@@ -207,6 +217,8 @@ export default function AccountsPage() {
           onClose={() => {
             setResetTarget(null);
             setResetError(null);
+            // A failed attempt keeps its variables, including the typed password.
+            resetMutation.reset();
           }}
           error={resetError}
           isSaving={resetMutation.isPending}
@@ -237,6 +249,7 @@ export default function AccountsPage() {
           onClose={() => {
             setCreating(false);
             setCreateError(null);
+            createMutation.reset();
           }}
           error={createError}
           isSaving={createMutation.isPending}
@@ -249,7 +262,12 @@ export default function AccountsPage() {
           username={credential.username}
           password={credential.password}
           note={credential.note}
-          onClose={() => setCredential(null)}
+          onClose={() => {
+            setCredential(null);
+            // The mutation cache would otherwise keep the generated password in memory.
+            createMutation.reset();
+            resetMutation.reset();
+          }}
         />
       )}
     </>

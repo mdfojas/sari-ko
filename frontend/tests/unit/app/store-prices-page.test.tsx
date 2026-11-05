@@ -214,6 +214,32 @@ describe('StorePricesPage', () => {
       });
     });
 
+    test('also refreshes the cached search results, which carry the sale source', async () => {
+      (updateProduct as ReturnType<typeof vi.fn>).mockResolvedValue({ ...product, selected_store_price_id: 2 });
+      const { invalidate } = renderPage();
+      await openDetail();
+      fireEvent.click(await screen.findByRole('button', { name: /use sm supermarket as sale price source/i }));
+
+      await waitFor(() => {
+        const keys = invalidate.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown[] }).queryKey));
+        expect(keys).toContain(JSON.stringify(['store-prices-search']));
+      });
+    });
+
+    test('clears an earlier select error once any later action succeeds', async () => {
+      (updateProduct as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new ApiError(404, { error: 'Store price not found' }))
+        .mockResolvedValueOnce({ ...product, selected_store_price_id: 2 });
+      renderPage();
+      await openDetail();
+      const select = await screen.findByRole('button', { name: /use sm supermarket as sale price source/i });
+      fireEvent.click(select);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Store price not found');
+
+      fireEvent.click(select);
+      await waitFor(() => expect(screen.queryByText('Store price not found')).not.toBeInTheDocument());
+    });
+
     test('shows the error if selecting fails', async () => {
       (updateProduct as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(404, { error: 'Store price not found' }));
       renderPage();

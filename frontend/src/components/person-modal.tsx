@@ -7,12 +7,15 @@ import type { Person, PersonInput } from '@/lib/persons-client';
 const HISTORY_HINT = "This person has loan or payment history, so they can't be deleted.";
 const ACCOUNT_HINT = 'This person has a linked account. Delete the account first.';
 const CHECKING_HINT = 'Checking loan history…';
+const UNAVAILABLE_HINT = "Couldn't check this person's loan history, so deleting is unavailable. Close and reopen to retry.";
 
 interface PersonModalProps {
   // Present: the person's profile (edit, delete, create account). Absent: "New person".
   person?: Person;
   // null while the ledger is still loading — history is unknown, so deleting stays disabled.
   hasLedgerHistory?: boolean | null;
+  // The ledger failed to load: history stays unknown, and saying "checking…" forever would be wrong.
+  historyUnavailable?: boolean;
   onSave: (input: PersonInput) => void;
   onDelete?: () => void;
   onCreateAccount?: () => void;
@@ -24,6 +27,7 @@ interface PersonModalProps {
 export function PersonModal({
   person,
   hasLedgerHistory = false,
+  historyUnavailable = false,
   onSave,
   onDelete,
   onCreateAccount,
@@ -52,7 +56,8 @@ export function PersonModal({
   }
 
   let deleteHint: string | undefined;
-  if (hasLedgerHistory === null) deleteHint = CHECKING_HINT;
+  if (historyUnavailable) deleteHint = UNAVAILABLE_HINT;
+  else if (hasLedgerHistory === null) deleteHint = CHECKING_HINT;
   else if (hasLedgerHistory) deleteHint = HISTORY_HINT;
   else if (person?.has_account) deleteHint = ACCOUNT_HINT;
 

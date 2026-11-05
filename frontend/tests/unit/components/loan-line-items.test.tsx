@@ -61,7 +61,7 @@ function renderIt() {
       <LoanLineItems loanId={9} personId={2} />
     </QueryClientProvider>
   );
-  return { invalidate };
+  return { invalidate, queryClient };
 }
 
 describe('LoanLineItems', () => {
@@ -117,7 +117,25 @@ describe('LoanLineItems', () => {
       });
     });
 
-    test("removing a loan's only line item offers Cancel / Delete Loan instead of calling the line-item delete", async () => {
+    test('never deletes the whole loan when the list changed under an open dialog', async () => {
+    (deleteLineItem as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    const { queryClient } = renderIt();
+    fireEvent.click(await screen.findByRole('button', { name: /delete kulang/i }));
+    await screen.findByText(/will be removed from this loan/i);
+
+    // Someone else removed the catalog item: the list now holds only a
+    // different item than the one being confirmed.
+    queryClient.setQueryData(['loan-line-items', 9], [{ ...catalogItem, id: 99 }]);
+    // The dialog must still describe a plain item removal, not a whole-loan delete.
+    expect(await screen.findByRole('button', { name: 'Delete Item' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Loan' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Item' }));
+
+    await waitFor(() => expect(deleteLineItem).toHaveBeenCalledWith(31));
+    expect(deleteLoan).not.toHaveBeenCalled();
+  });
+
+  test("removing a loan's only line item offers Cancel / Delete Loan instead of calling the line-item delete", async () => {
       (listLineItems as ReturnType<typeof vi.fn>).mockResolvedValue([catalogItem]);
       (deleteLoan as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
       const { invalidate } = renderIt();

@@ -119,7 +119,9 @@ export default function LoansPage() {
     onError: (err: unknown) => setDeleteError(extractErrorMessage(err)),
   });
 
+  // gcTime 0: see accounts/page.tsx — the generated password must not linger in the cache.
   const createAccountMutation = useMutation({
+    gcTime: 0,
     mutationFn: (person: Person) => createAccount({ role: 'customer', person_id: person.id }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['persons'] });
@@ -318,6 +320,7 @@ export default function LoansPage() {
         <PersonModal
           person={profile}
           // null until the ledger loads — history is unknown, so Delete stays disabled.
+          historyUnavailable={ledgerQuery.isError}
           hasLedgerHistory={ledgerQuery.data ? ledgerQuery.data.length > 0 : null}
           onSave={(input) => updatePersonMutation.mutate({ id: profile.id, input })}
           onDelete={() => {
@@ -382,7 +385,11 @@ export default function LoansPage() {
           title="Account created"
           username={credential.username}
           password={credential.password}
-          onClose={() => setCredential(null)}
+          onClose={() => {
+            setCredential(null);
+            // The mutation cache would otherwise keep the generated password in memory.
+            createAccountMutation.reset();
+          }}
         />
       )}
     </>

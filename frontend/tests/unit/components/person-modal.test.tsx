@@ -118,6 +118,22 @@ describe('PersonModal — profile', () => {
     });
   });
 
+  test('Delete stays disabled while a save is in flight, even with no history and no account', () => {
+    const { onDelete } = renderModal({ person, hasLedgerHistory: false, isSaving: true });
+    const del = screen.getByRole('button', { name: /delete person/i });
+    expect(del).toBeDisabled();
+    fireEvent.click(del);
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  test('says history is unavailable, instead of "checking…" forever, when the ledger failed to load', () => {
+    renderModal({ person, hasLedgerHistory: null, historyUnavailable: true });
+    const del = screen.getByRole('button', { name: /delete person/i });
+    expect(del).toBeDisabled();
+    expect(del).toHaveAttribute('title', expect.stringMatching(/couldn.t check/i));
+    expect(del).not.toHaveAttribute('title', expect.stringMatching(/checking/i));
+  });
+
   test("shows the server's error and disables actions while busy", () => {
     const { onSave } = renderModal({ person, hasLedgerHistory: false, error: 'Person not found', isSaving: true });
     expect(screen.getByRole('alert')).toHaveTextContent('Person not found');

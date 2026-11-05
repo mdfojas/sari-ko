@@ -44,13 +44,15 @@ export function StorePricesDetail({ productId, onBack }: StorePricesDetailProps)
     queryClient.invalidateQueries({ queryKey: ['store-prices', productId] });
     queryClient.invalidateQueries({ queryKey: ['product', productId] });
     queryClient.invalidateQueries({ queryKey: ['products'] });
+    // The search-first page caches results per query; they carry the sale source.
+    queryClient.invalidateQueries({ queryKey: ['store-prices-search'] });
+    setActionError(null);
   }
 
   const selectMutation = useMutation({
     mutationFn: (storePriceId: number) => updateProduct(productId, { selected_store_price_id: storePriceId }),
     onSuccess: () => {
       refresh();
-      setActionError(null);
     },
     onError: (err: unknown) => setActionError(extractErrorMessage(err)),
   });

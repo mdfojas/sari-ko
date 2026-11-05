@@ -80,7 +80,7 @@ function renderPage() {
       </TopbarProvider>
     </QueryClientProvider>
   );
-  return { invalidate };
+  return { invalidate, queryClient };
 }
 
 const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
@@ -219,6 +219,30 @@ describe('LoansPage', () => {
       expect(deletePerson).not.toHaveBeenCalled();
     });
 
+    test('does not fetch any ledger until a profile is opened', async () => {
+      renderPage();
+      await screen.findByText('Maria Santos');
+      expect(getLedger).not.toHaveBeenCalled();
+    });
+
+    test('keeps Delete disabled, saying so, when the ledger fails to load', async () => {
+      (getLedger as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(500, { error: 'boom' }));
+      renderPage();
+      const dialog = await openProfile('Maria Santos');
+      const del = within(dialog).getByRole('button', { name: /delete person/i });
+      await waitFor(() => expect(del).toHaveAttribute('title', expect.stringMatching(/couldn.t check/i)));
+      expect(del).toBeDisabled();
+    });
+
+    test('keeps Delete disabled while the ledger is still loading', async () => {
+      (getLedger as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      const dialog = await openProfile('Maria Santos');
+      const del = within(dialog).getByRole('button', { name: /delete person/i });
+      expect(del).toBeDisabled();
+      expect(del).toHaveAttribute('title', expect.stringMatching(/checking/i));
+    });
+
     test('a person with no history can be deleted after a confirmation', async () => {
       (deletePerson as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
       const { invalidate } = renderPage();
@@ -267,6 +291,28 @@ describe('LoansPage', () => {
       expect(within(result).getByText('mariasantos')).toBeInTheDocument();
       expect(within(result).getByText('Gen3rated!!')).toBeInTheDocument();
       await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['persons'] }));
+    });
+
+    test('does not leave the generated password in the mutation cache after Done', async () => {
+      (createAccount as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 7,
+        username: 'mariasantos',
+        role: 'customer',
+        person_id: 2,
+        password: 'Gen3rated!!',
+        created_at: '',
+        updated_at: '',
+      });
+      const { queryClient } = renderPage();
+      const dialog = await openProfile('Maria Santos');
+      fireEvent.click(within(dialog).getByRole('button', { name: /create account/i }));
+      const result = await screen.findByRole('dialog', { name: /account created/i });
+      fireEvent.click(within(result).getByRole('button', { name: /done/i }));
+
+      await waitFor(() => {
+        const cached = queryClient.getMutationCache().getAll().map((m) => JSON.stringify(m.state.data ?? null));
+        expect(cached.join('')).not.toContain('Gen3rated!!');
+      });
     });
 
     test('a person who already has an account is not offered "Create account"', async () => {

@@ -25,7 +25,9 @@ export function LoanLineItems({ loanId, personId }: LoanLineItemsProps) {
   const items = itemsQuery.data ?? [];
   // The backend refuses to delete a loan's last line item (it would leave an
   // empty loan), so the only way to remove it is to delete the whole loan.
-  const removingOnlyItem = removing !== null && items.length === 1;
+  // Checked against the item itself, not just the count: if the list changed
+  // while the dialog was open, a stale count must not delete the whole loan.
+  const removingOnlyItem = removing !== null && items.length === 1 && items[0].id === removing.id;
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ['loan-line-items', loanId] });
@@ -36,7 +38,8 @@ export function LoanLineItems({ loanId, personId }: LoanLineItemsProps) {
   }
 
   const removeMutation = useMutation({
-    mutationFn: (item: LineItem) => (items.length === 1 ? deleteLoan(loanId) : deleteLineItem(item.id)),
+    mutationFn: (item: LineItem) =>
+      items.length === 1 && items[0].id === item.id ? deleteLoan(loanId) : deleteLineItem(item.id),
     onSuccess: () => {
       refresh();
       setRemoving(null);
