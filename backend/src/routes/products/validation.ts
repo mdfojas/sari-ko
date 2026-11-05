@@ -8,6 +8,7 @@ import {
   MAX_AMOUNT_TEXT,
   NUL_MESSAGE,
 } from '../../shared/validation.js';
+import { validateStoreName } from '../stores/validation.js';
 
 export interface CreateProductBody {
   name?: string;
@@ -91,8 +92,13 @@ export function validateCreateProduct(body: CreateProductBody): string | null {
   if (storePrices.some((sp) => sp.price > INT_MAX)) {
     return `A store price can be at most ${MAX_PRICE_TEXT}`;
   }
-  if (storePrices.some((sp) => hasNul(sp.store_name))) {
-    return NUL_MESSAGE;
+  for (const storePrice of storePrices) {
+    const storeNameError = validateStoreName(storePrice.store_name);
+    if (storeNameError) return storeNameError;
+  }
+  const storeKeys = storePrices.map((sp) => sp.store_name.trim().toLowerCase());
+  if (new Set(storeKeys).size !== storeKeys.length) {
+    return 'A product can have only one price per store';
   }
   return validateOptionalFields(body as Record<string, unknown>, { nullableOtherNames: true });
 }

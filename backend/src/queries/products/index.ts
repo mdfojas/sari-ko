@@ -2,14 +2,16 @@ import type { PoolClient } from 'pg';
 import { pool } from '../../shared/db.js';
 import { buildSetClause } from '../../shared/sql.js';
 import { withTransaction } from '../../shared/transaction.js';
+import { findOrCreateStores, lockStoresShared } from '../stores/index.js';
 
 const PRODUCT_SELECT = `
   SELECT
     p.id, p.name, p.other_names, p.barcode, p.sale_price, p.selected_store_price_id,
-    sp.price AS original_price, sp.store_name AS selected_store_name,
+    sp.price AS original_price, st.name AS selected_store_name,
     p.created_at, p.updated_at
   FROM products p
   LEFT JOIN store_prices sp ON sp.id = p.selected_store_price_id
+  LEFT JOIN stores st ON st.id = sp.store_id
 `;
 
 export interface CreateStorePriceInput {
@@ -80,12 +82,17 @@ export async function createProduct(input: CreateProductInput): Promise<number> 
     );
     const productId = productRows[0].id;
 
+    const storeIds = await findOrCreateStores(
+      client,
+      input.store_prices.map((sp) => sp.store_name),
+    );
+    await lockStoresShared(client, [...storeIds.values()]);
     const selectedIndex = input.store_prices.findIndex((sp) => sp.selected);
     let selectedStorePriceId: number | null = null;
     for (const [index, storePrice] of input.store_prices.entries()) {
       const { rows: priceRows } = await client.query(
-        `INSERT INTO store_prices (product_id, store_name, price) VALUES ($1, $2, $3) RETURNING id`,
-        [productId, storePrice.store_name, storePrice.price],
+        `INSERT INTO store_prices (product_id, store_id, price) VALUES ($1, $2, $3) RETURNING id`,
+        [productId, storeIds.get(storePrice.store_name.trim().toLowerCase()), storePrice.price],
       );
       if (index === selectedIndex) {
         selectedStorePriceId = priceRows[0].id;

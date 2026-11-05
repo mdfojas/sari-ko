@@ -20,3 +20,10 @@ export function isDataException(err: unknown): boolean {
   const code = typeof err === 'object' && err !== null ? (err as { code?: unknown }).code : undefined;
   return typeof code === 'string' && BAD_INPUT_CODES.has(code);
 }
+
+// 40001 serialization failure and 40P01 deadlock: the database aborted this transaction because
+// of a concurrent one. Nothing was changed, and trying again is the right response.
+export function isRetryableConflict(err: unknown): boolean {
+  const code = typeof err === 'object' && err !== null ? (err as { code?: unknown }).code : undefined;
+  return code === '40001' || code === '40P01';
+}
