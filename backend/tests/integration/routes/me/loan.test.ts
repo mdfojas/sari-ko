@@ -53,7 +53,7 @@ describe('GET /me/loans/:id', () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it('returns 403, not the data, for a loan belonging to a different person', async () => {
+  it('returns 404, not the data, for a loan belonging to a different person', async () => {
     const ownPersonId = await createPerson('Juan');
     const accountId = await createAccount({ username: 'juan', role: 'customer', personId: ownPersonId });
     const otherPersonId = await createPerson('Maria');
@@ -65,7 +65,7 @@ describe('GET /me/loans/:id', () => {
       headers: authHeaderFor('customer', { accountId, personId: ownPersonId, username: 'juan' }),
     });
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(404);
   });
 
   it('returns the same data as GET /loans/:id for the caller own loan', async () => {
@@ -87,4 +87,22 @@ describe('GET /me/loans/:id', () => {
     expect(meResponse.statusCode).toBe(200);
     expect(meResponse.json()).toEqual(adminResponse.json());
   });
+
+  it.each(['', '/line-items', '/history'])(
+    "answers another person's loan%s exactly like a loan that does not exist, so ids cannot be probed",
+    async (suffix) => {
+      const ownPersonId = await createPerson('Juan');
+      const accountId = await createAccount({ username: 'juan', role: 'customer', personId: ownPersonId });
+      const otherLoanId = await createLoan(await createPerson('Maria'));
+      const headers = authHeaderFor('customer', { accountId, personId: ownPersonId, username: 'juan' });
+
+      const someoneElses = await app.inject({ method: 'GET', url: `/me/loans/${otherLoanId}${suffix}`, headers });
+      const missing = await app.inject({ method: 'GET', url: `/me/loans/999999${suffix}`, headers });
+
+      expect(someoneElses.statusCode).toBe(404);
+      expect(someoneElses.statusCode).toBe(missing.statusCode);
+      expect(someoneElses.body).toBe(missing.body);
+      expect(someoneElses.json()).toEqual({ error: 'Loan not found' });
+    },
+  );
 });

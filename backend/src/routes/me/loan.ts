@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { findLoanById } from '../../queries/loans/index.js';
+import { findLoanById, findLoanOwnerId } from '../../queries/loans/index.js';
 import { requireIdParam } from '../../shared/require-id-param.js';
 import { checkLoanOwnership } from './loan-ownership.js';
 
@@ -7,14 +7,13 @@ export async function loan(request: FastifyRequest<{ Params: { id: string } }>, 
   const id = requireIdParam(request.params.id, reply);
   if (id === null) return;
 
-  // The full loan (with its total) is the response here, so fetching it
-  // once and checking ownership on the already-fetched row is the minimal
-  // work possible — unlike the line-items/history bridges below, there's
-  // no separate cheap-vs-full-fetch tradeoff to make.
-  const loanData = await findLoanById(id);
-  const check = checkLoanOwnership(loanData?.person_id ?? null, request.account!.personId!);
+  // Ownership first, with the cheap lookup the line-items and history bridges
+  // use: loading the full loan (with its SUM subquery) before checking would
+  // make someone else's loan measurably slower to answer than a missing one.
+  const ownerId = await findLoanOwnerId(id);
+  const check = checkLoanOwnership(ownerId, request.account!.personId!);
   if (!check.ok) {
-    return reply.code(check.status).send({ error: check.status === 404 ? 'Loan not found' : 'Forbidden' });
+    return reply.code(check.status).send({ error: 'Loan not found' });
   }
-  return loanData;
+  return findLoanById(id);
 }

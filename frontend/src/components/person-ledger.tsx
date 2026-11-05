@@ -5,13 +5,21 @@ import { useQuery } from '@tanstack/react-query';
 import { LoanLineItems } from '@/components/loan-line-items';
 import { extractErrorMessage } from '@/lib/error-message';
 import { peso } from '@/lib/money';
+import { scopedKey } from '@/lib/loan-scope';
+import { getMyLedger } from '@/lib/me-client';
 import { getLedger } from '@/lib/persons-client';
 
-export function PersonLedger({ personId }: { personId: number }) {
+// Staff view of one person's ledger, or (scope "me") the signed-in customer's own,
+// which is read-only and needs no person id.
+type PersonLedgerProps = { scope?: 'staff'; personId: number } | { scope: 'me'; personId?: undefined };
+
+export function PersonLedger(props: PersonLedgerProps) {
+  const scope = props.scope ?? 'staff';
+  const personId = props.personId;
   const [expandedLoanId, setExpandedLoanId] = useState<number | null>(null);
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['ledger', personId],
-    queryFn: () => getLedger(personId),
+    queryKey: scope === 'me' ? scopedKey('me', 'ledger') : ['ledger', personId],
+    queryFn: () => (scope === 'me' ? getMyLedger() : getLedger(personId as number)),
   });
 
   if (isLoading) return <p className="p-4 text-sm text-text-muted">Loading…</p>;
@@ -70,7 +78,11 @@ export function PersonLedger({ personId }: { personId: number }) {
                 <tr>
                   <td />
                   <td colSpan={4} className="px-3">
-                    <LoanLineItems loanId={entry.id} personId={personId} />
+                    {scope === 'me' ? (
+                      <LoanLineItems loanId={entry.id} scope="me" />
+                    ) : (
+                      <LoanLineItems loanId={entry.id} personId={personId as number} scope="staff" />
+                    )}
                   </td>
                 </tr>
               )}

@@ -19,3 +19,17 @@ export const isPositiveInteger = (value: unknown): value is number => Number.isI
 export const isNonBlankString = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
 
 export const hasNul = (value: unknown): boolean => typeof value === 'string' && value.includes('\u0000');
+
+export const MAX_USERNAME_LENGTH = 50;
+
+// Shared by every route that takes a username (self-service change, account
+// creation). Length is measured after trimming, because the trimmed value is
+// what gets stored.
+export function validateUsername(value: unknown): string | null {
+  if (typeof value !== 'string') return 'username must be text';
+  const trimmed = value.trim();
+  if (trimmed === '') return 'username cannot be blank';
+  if (trimmed.length > MAX_USERNAME_LENGTH) return `username can be at most ${MAX_USERNAME_LENGTH} characters`;
+  if (hasNul(trimmed)) return NUL_MESSAGE;
+  return null;
+}

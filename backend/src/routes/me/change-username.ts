@@ -13,7 +13,7 @@ export async function changeUsername(
   }
 
   try {
-    await updateUsername(request.account!.id, request.body.username as string);
+    await updateUsername(request.account!.id, (request.body.username as string).trim());
   } catch (err) {
     if (isUniqueViolation(err)) {
       return reply.code(409).send({ error: 'That username is already taken' });

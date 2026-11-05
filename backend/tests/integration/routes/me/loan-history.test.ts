@@ -22,7 +22,7 @@ describe('GET /me/loans/:id/history', () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it('returns 403 for a loan belonging to a different person', async () => {
+  it('returns 404 for a loan belonging to a different person', async () => {
     const ownPersonId = await createPerson('Juan');
     const accountId = await createAccount({ username: 'juan', role: 'customer', personId: ownPersonId });
     const otherPersonId = await createPerson('Maria');
@@ -34,7 +34,7 @@ describe('GET /me/loans/:id/history', () => {
       headers: authHeaderFor('customer', { accountId, personId: ownPersonId, username: 'juan' }),
     });
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(404);
   });
 
   it('returns the same audit entries as GET /loans/:id/history, scoped to the caller own loan', async () => {

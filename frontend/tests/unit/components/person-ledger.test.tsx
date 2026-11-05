@@ -3,12 +3,14 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PersonLedger } from '@/components/person-ledger';
 import { getLedger, type LedgerEntry } from '@/lib/persons-client';
+import { getMyLedger } from '@/lib/me-client';
 import { ApiError } from '@/lib/api-client';
 
 vi.mock('@/lib/persons-client', () => ({ getLedger: vi.fn() }));
+vi.mock('@/lib/me-client', () => ({ getMyLedger: vi.fn() }));
 vi.mock('@/components/loan-line-items', () => ({
-  LoanLineItems: ({ loanId, personId }: { loanId: number; personId: number }) => (
-    <div data-testid="line-items">{`items of loan ${loanId} (person ${personId})`}</div>
+  LoanLineItems: ({ loanId, personId, scope }: { loanId: number; personId: number; scope?: string }) => (
+    <div data-testid="line-items">{`items of loan ${loanId} (person ${personId}, scope ${scope ?? 'staff'})`}</div>
   ),
 }));
 
@@ -20,7 +22,7 @@ const ledger: LedgerEntry[] = [
 function renderLedger() {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <PersonLedger personId={2} />
+      <PersonLedger scope="staff" personId={2} />
     </QueryClientProvider>
   );
 }
@@ -51,7 +53,7 @@ describe('PersonLedger', () => {
     const toggle = screen.getByRole('button', { name: /show items for loan/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
-    expect(screen.getByTestId('line-items')).toHaveTextContent('items of loan 9 (person 2)');
+    expect(screen.getByTestId('line-items')).toHaveTextContent('items of loan 9 (person 2, scope staff)');
     expect(screen.getByRole('button', { name: /hide items for loan/i })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /hide items for loan/i }));
@@ -71,5 +73,36 @@ describe('PersonLedger', () => {
     renderLedger();
     expect(await screen.findByRole('alert')).toHaveTextContent('db down');
     expect(screen.queryByText(/no loans or payments yet/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('PersonLedger in the customer ("me") scope', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (getMyLedger as ReturnType<typeof vi.fn>).mockResolvedValue(ledger);
+  });
+
+  function renderMine() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PersonLedger scope="me" />
+      </QueryClientProvider>
+    );
+    return { queryClient };
+  }
+
+  test('reads /me/ledger, never a person id from the URL, and caches under a "me" key', async () => {
+    const { queryClient } = renderMine();
+    expect(await screen.findByText('2 canned goods')).toBeInTheDocument();
+    expect(getMyLedger).toHaveBeenCalledTimes(1);
+    expect(getLedger).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(['me', 'ledger'])).toBeDefined();
+  });
+
+  test('expanding a loan hands the line items the "me" scope', async () => {
+    renderMine();
+    fireEvent.click(await screen.findByRole('button', { name: /show items for loan 9/i }));
+    expect(screen.getByTestId('line-items')).toHaveTextContent('scope me');
   });
 });

@@ -1,5 +1,6 @@
 import { passwordStrengthMessage, validatePasswordStrength } from '../../shared/auth/password.js';
 import type { Role } from '../../shared/auth/jwt.js';
+import { isPlainObject, validateUsername } from '../../shared/validation.js';
 
 const VALID_ROLES: Role[] = ['admin', 'store_owner', 'customer'];
 
@@ -11,6 +12,8 @@ export interface CreateAccountBody {
 }
 
 export function validateCreateAccount(body: CreateAccountBody): string | null {
+  if (!isPlainObject(body)) return 'Request body must be a JSON object';
+
   if (!body.role || !VALID_ROLES.includes(body.role as Role)) {
     return 'role must be one of admin, store_owner, customer';
   }
@@ -27,7 +30,12 @@ export function validateCreateAccount(body: CreateAccountBody): string | null {
     return 'username is required for admin or store_owner accounts';
   }
 
-  if (body.password !== undefined && !validatePasswordStrength(body.password)) {
+  if (body.username !== undefined) {
+    const usernameError = validateUsername(body.username);
+    if (usernameError) return usernameError;
+  }
+
+  if (body.password !== undefined && (typeof body.password !== 'string' || !validatePasswordStrength(body.password))) {
     return passwordStrengthMessage();
   }
 

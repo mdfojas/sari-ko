@@ -124,4 +124,19 @@ describe('PATCH /me/password', () => {
 
     expect(response.statusCode).toBe(204);
   });
+
+  it.each([
+    ['no body', undefined],
+    ['a numeric currentPassword', { currentPassword: 123, newPassword: 'brand-new-pass' }],
+    ['an array newPassword', { currentPassword: 'old-password', newPassword: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'] }],
+  ])('returns 400, not a 500, for %s', async (_label, payload) => {
+    const id = await createAccount({ username: 'owner1', role: 'store_owner' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/me/password',
+      headers: authHeaderFor('store_owner', { accountId: id, username: 'owner1' }),
+      ...(payload === undefined ? {} : { payload: payload as object }),
+    });
+    expect(response.statusCode).toBe(400);
+  });
 });

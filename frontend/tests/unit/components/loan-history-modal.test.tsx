@@ -3,9 +3,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoanHistoryModal } from '@/components/loan-history-modal';
 import { getLoanHistory, type LoanHistoryEntry } from '@/lib/loans-client';
+import { getMyLoanHistory } from '@/lib/me-client';
 import { ApiError } from '@/lib/api-client';
 
 vi.mock('@/lib/loans-client', () => ({ getLoanHistory: vi.fn() }));
+vi.mock('@/lib/me-client', () => ({ getMyLoanHistory: vi.fn() }));
 
 const entries: LoanHistoryEntry[] = [
   { id: 1, entity_type: 'loan', entity_id: 9, action: 'create', changes: {}, created_at: '2026-01-01T00:00:00.000Z' },
@@ -30,7 +32,7 @@ const entries: LoanHistoryEntry[] = [
 function renderModal(onClose = vi.fn()) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <LoanHistoryModal loanId={9} onClose={onClose} />
+      <LoanHistoryModal loanId={9} scope="staff" onClose={onClose} />
     </QueryClientProvider>
   );
   return { onClose };
@@ -68,5 +70,20 @@ describe('LoanHistoryModal', () => {
     await screen.findByText('Loan created');
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('LoanHistoryModal in the customer ("me") scope', () => {
+  test('reads the ownership-checked /me history, not the staff endpoint', async () => {
+    vi.clearAllMocks();
+    (getMyLoanHistory as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <LoanHistoryModal loanId={9} scope="me" onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+    expect(await screen.findByText('Loan created')).toBeInTheDocument();
+    expect(getMyLoanHistory).toHaveBeenCalledWith(9);
+    expect(getLoanHistory).not.toHaveBeenCalled();
   });
 });

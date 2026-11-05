@@ -156,4 +156,36 @@ describe('POST /accounts', () => {
     });
     expect(response.statusCode).toBe(400);
   });
+
+  describe('malformed input', () => {
+    const post = (payload?: unknown) =>
+      app.inject({
+        method: 'POST',
+        url: '/accounts',
+        headers: authHeaderFor('admin'),
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+
+    it('returns 400, not a 500, when there is no body', async () => {
+      expect((await post()).statusCode).toBe(400);
+    });
+
+    it.each([
+      ['a numeric username', { role: 'admin', username: 123, password: 'password123' }],
+      ['a blank username', { role: 'admin', username: '   ', password: 'password123' }],
+      ['an over-long username', { role: 'admin', username: 'x'.repeat(5000), password: 'password123' }],
+      ['a NUL byte in the username', { role: 'admin', username: 'a\u0000b', password: 'password123' }],
+      ['a numeric password', { role: 'admin', username: 'admin9', password: 12345678 }],
+    ])('rejects %s and creates nothing', async (_label, payload) => {
+      expect((await post(payload)).statusCode).toBe(400);
+      const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM accounts`);
+      expect(rows[0].n).toBe(0);
+    });
+
+    it('stores the trimmed username', async () => {
+      const response = await post({ role: 'admin', username: '  padded  ', password: 'password123' });
+      expect(response.statusCode).toBe(201);
+      expect(response.json().username).toBe('padded');
+    });
+  });
 });
