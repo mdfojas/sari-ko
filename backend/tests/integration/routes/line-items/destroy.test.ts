@@ -69,4 +69,34 @@ describe('DELETE /line-items/:id', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error).toMatch(/DELETE \/loans/i);
   });
+
+  it('never leaves a loan with no line items when its last two are deleted at once', async () => {
+    for (let round = 0; round < 8; round++) {
+      const loanId = await createLoan();
+      const a = await addLineItem(loanId, 100);
+      const b = await addLineItem(loanId, 200);
+
+      const results = await Promise.all(
+        [a, b].map((id) => app.inject({ headers: authHeaderFor('admin'), method: 'DELETE', url: `/line-items/${id}` })),
+      );
+
+      expect(results.map((r) => r.statusCode).sort()).toEqual([204, 400]);
+      const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM loan_line_items WHERE loan_id = $1`, [loanId]);
+      expect(rows[0].n).toBe(1);
+    }
+  });
+
+  it('answers 204 then 404 when the same item is deleted twice at once', async () => {
+    for (let round = 0; round < 8; round++) {
+      const loanId = await createLoan();
+      const a = await addLineItem(loanId, 100);
+      await addLineItem(loanId, 200);
+
+      const results = await Promise.all(
+        [a, a].map((id) => app.inject({ headers: authHeaderFor('admin'), method: 'DELETE', url: `/line-items/${id}` })),
+      );
+
+      expect(results.map((r) => r.statusCode).sort()).toEqual([204, 404]);
+    }
+  });
 });

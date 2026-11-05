@@ -15,7 +15,7 @@ const HAS_ACCOUNT_SELECT = `
     (
       COALESCE((SELECT SUM(lli.amount) FROM loan_line_items lli JOIN loans l ON l.id = lli.loan_id WHERE l.person_id = p.id), 0)
       - COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.person_id = p.id), 0)
-    )::integer AS balance
+    )::float8 AS balance
   FROM persons p
 `;
 
@@ -87,7 +87,7 @@ export async function getLedgerForPerson(personId: number): Promise<LedgerEntry[
   const { rows: loanRows } = await pool.query(
     `SELECT l.id, l.created_at,
        COALESCE(STRING_AGG(lli.description, ', '), '') AS description,
-       COALESCE(SUM(lli.amount), 0)::integer AS amount
+       COALESCE(SUM(lli.amount), 0)::float8 AS amount
      FROM loans l
      LEFT JOIN loan_line_items lli ON lli.loan_id = l.id
      WHERE l.person_id = $1

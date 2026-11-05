@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateCreateLoan } from '../../../../src/routes/loans/validation.js';
+import { validateCreateLoan, validateUpdateLoan } from '../../../../src/routes/loans/validation.js';
 
 const check = (body: unknown) => validateCreateLoan(body as never);
 
@@ -29,5 +29,25 @@ describe('validateCreateLoan', () => {
   it('rejects a note that is not text, or that holds a NUL byte', () => {
     expect(check({ note: 5, line_items: [{ description: 'x', amount: 1 }] })).toBe('note must be text or null');
     expect(check({ note: 'a\u0000b', line_items: [{ description: 'x', amount: 1 }] })).toBe('Text cannot contain NUL characters');
+  });
+});
+
+describe('validateUpdateLoan', () => {
+  const upd = (body: unknown) => validateUpdateLoan(body as never);
+
+  it.each([{ note: 'weekly' }, { note: null }, { note: '' }, {}])('accepts %j', (body) => {
+    expect(upd(body)).toBeNull();
+  });
+
+  it.each([undefined, null, 'x', 5, []])('rejects a body that is not a JSON object (%s)', (body) => {
+    expect(upd(body)).toBe('Request body must be a JSON object');
+  });
+
+  it.each([123, {}, true, ['a']])('rejects a note that is not text (%j) instead of silently coercing it', (note) => {
+    expect(upd({ note })).toBe('note must be text or null');
+  });
+
+  it('rejects a NUL byte in the note', () => {
+    expect(upd({ note: 'a\u0000b' })).toBe('Text cannot contain NUL characters');
   });
 });

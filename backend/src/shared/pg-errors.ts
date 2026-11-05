@@ -8,3 +8,15 @@ export function isForeignKeyViolation(err: unknown): boolean {
 export function isUniqueViolation(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === UNIQUE_VIOLATION;
 }
+
+// SQLSTATE "data exception" codes that mean the caller's input was unacceptable
+// to Postgres: string too long, numeric / datetime out of range or malformed, a
+// NUL byte in text, an invalid text representation. A deliberate allowlist, not
+// the whole class 22 (or class 2x): constraint violations and server faults
+// must keep their own handling, not be reported as the caller's mistake.
+const BAD_INPUT_CODES = new Set(['22001', '22003', '22007', '22008', '22021', '22P02']);
+
+export function isDataException(err: unknown): boolean {
+  const code = typeof err === 'object' && err !== null ? (err as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && BAD_INPUT_CODES.has(code);
+}

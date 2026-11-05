@@ -3,6 +3,7 @@ import {
   AmountTooLargeError,
   assertLoanTotalWithinLimit,
   insertLineItem,
+  lockLoan,
   ProductNotFoundError,
   type CreateLineItemInput,
 } from '../../queries/line-items/index.js';
@@ -29,10 +30,12 @@ export async function createForLoan(
     // In a transaction so an item that would push the loan past the INTEGER
     // ceiling is rolled back rather than saved.
     const lineItem = await withTransaction(pool, async (client) => {
+      if (!(await lockLoan(client, loanId))) return null;
       const inserted = await insertLineItem(client, loanId, body as CreateLineItemInput);
       await assertLoanTotalWithinLimit(client, loanId);
       return inserted;
     });
+    if (lineItem === null) return reply.code(404).send({ error: 'Loan not found' });
     return reply.code(201).send(lineItem);
   } catch (err) {
     if (err instanceof ProductNotFoundError || err instanceof AmountTooLargeError) {

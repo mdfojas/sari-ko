@@ -15,7 +15,7 @@ export interface UpdateLoanInput {
 
 const LOAN_SELECT = `
   SELECT l.id, l.person_id, l.note, l.created_at, l.updated_at,
-    COALESCE((SELECT SUM(amount) FROM loan_line_items WHERE loan_id = l.id), 0)::integer AS total
+    COALESCE((SELECT SUM(amount) FROM loan_line_items WHERE loan_id = l.id), 0)::float8 AS total
   FROM loans l
 `;
 

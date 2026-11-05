@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { findLoanById, updateLoan, type UpdateLoanInput } from '../../queries/loans/index.js';
 import { requireIdParam } from '../../shared/require-id-param.js';
+import { validateUpdateLoan } from './validation.js';
 
 export async function patch(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateLoanInput }>,
@@ -9,6 +10,11 @@ export async function patch(
   const id = requireIdParam(request.params.id, reply);
   if (id === null) return;
   const body = request.body;
+
+  const validationError = validateUpdateLoan(body);
+  if (validationError) {
+    return reply.code(400).send({ error: validationError });
+  }
 
   if (body.note === undefined) {
     return reply.code(400).send({ error: 'No updatable fields provided' });

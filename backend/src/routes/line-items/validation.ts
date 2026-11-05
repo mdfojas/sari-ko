@@ -1,4 +1,4 @@
-import type { CreateLineItemInput } from '../../queries/line-items/index.js';
+import type { CreateLineItemInput, UpdateLineItemInput } from '../../queries/line-items/index.js';
 import {
   hasNul,
   INT_MAX,
@@ -37,5 +37,27 @@ export function validateCreateLineItem(body: Partial<CreateLineItemInput>): stri
   }
   if (body.amount <= 0) return 'amount must be greater than 0';
   if (body.amount > INT_MAX) return `amount can be at most ${MAX_AMOUNT_TEXT}`;
+  return null;
+}
+
+export function validateUpdateLineItem(body: UpdateLineItemInput): string | null {
+  if (!isPlainObject(body)) return 'Request body must be a JSON object';
+
+  if (body.description !== undefined) {
+    if (!isNonBlankString(body.description)) return 'description must be non-blank text';
+    if (hasNul(body.description)) return NUL_MESSAGE;
+  }
+  if (body.quantity !== undefined) {
+    if (!isPositiveInteger(body.quantity) || body.quantity > INT_MAX) {
+      return 'quantity must be a whole number of at least 1';
+    }
+  }
+  if (body.amount !== undefined) {
+    if (typeof body.amount !== 'number' || !Number.isInteger(body.amount)) {
+      return 'amount must be a whole number of centavos';
+    }
+    if (body.amount <= 0) return 'amount must be greater than 0';
+    if (body.amount > INT_MAX) return `amount can be at most ${MAX_AMOUNT_TEXT}`;
+  }
   return null;
 }

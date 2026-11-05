@@ -124,4 +124,39 @@ describe('POST /loans/:id/line-items', () => {
     });
     expect(response.statusCode).toBe(400);
   });
+
+  it('holds the ceiling under concurrent adds: simultaneous requests cannot each see room and together exceed it', async () => {
+    const loanId = await createLoan();
+    await pool.query(`INSERT INTO loan_line_items (loan_id, description, amount) VALUES ($1, 'base', 1000000000)`, [loanId]);
+
+    // 1,000,000,000 already; each add is 500,000,000, so exactly two fit under 2,147,483,647.
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        app.inject({
+          headers: authHeaderFor('admin'),
+          method: 'POST',
+          url: `/loans/${loanId}/line-items`,
+          payload: { description: `add ${i}`, amount: 500_000_000 },
+        }),
+      ),
+    );
+
+    const statuses = results.map((r) => r.statusCode).sort();
+    expect(statuses.filter((s) => s === 201)).toHaveLength(2);
+    expect(statuses.filter((s) => s === 400)).toHaveLength(4);
+    const { rows } = await pool.query(`SELECT SUM(amount)::float8 AS total FROM loan_line_items WHERE loan_id = $1`, [loanId]);
+    expect(rows[0].total).toBe(2_000_000_000);
+    const loan = await app.inject({ headers: authHeaderFor('admin'), method: 'GET', url: `/loans/${loanId}` });
+    expect(loan.statusCode).toBe(200);
+  });
+
+  it('returns 404 for a loan that does not exist', async () => {
+    const response = await app.inject({
+      headers: authHeaderFor('admin'),
+      method: 'POST',
+      url: '/loans/999999/line-items',
+      payload: { description: 'x', amount: 100 },
+    });
+    expect(response.statusCode).toBe(404);
+  });
 });
