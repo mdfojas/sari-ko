@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { fetchCurrentUser, loginRequest } from '@/lib/auth-client';
 import { clearToken, getToken, setToken } from '@/lib/token-storage';
 import { ApiError } from '@/lib/api-client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 const replace = vi.fn();
 
@@ -20,8 +22,16 @@ vi.mock('@/lib/token-storage', () => ({
   clearToken: vi.fn(),
 }));
 
+let queryClient: QueryClient;
+
 function renderAuth() {
-  return renderHook(() => useAuth(), { wrapper: AuthProvider });
+  queryClient = new QueryClient();
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
+  return renderHook(() => useAuth(), { wrapper });
 }
 
 describe('AuthProvider', () => {
@@ -154,5 +164,65 @@ describe('AuthProvider', () => {
 
   test('useAuth throws when used outside an AuthProvider', () => {
     expect(() => renderHook(() => useAuth())).toThrow(/AuthProvider/);
+  });
+
+  test('refreshUser re-reads /me so a changed username shows up without a reload', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue('existing-token');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1, username: 'old', role: 'admin', personId: null });
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.user?.username).toBe('old'));
+
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1, username: 'renamed', role: 'admin', personId: null });
+    await act(async () => {
+      await result.current.refreshUser();
+    });
+
+    expect(result.current.user?.username).toBe('renamed');
+    expect(clearToken).not.toHaveBeenCalled();
+  });
+
+  test('a failed refreshUser keeps the current user and the token', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue('existing-token');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1, username: 'old', role: 'admin', personId: null });
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.user?.username).toBe('old'));
+
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network blip'));
+    await act(async () => {
+      await result.current.refreshUser();
+    });
+
+    expect(result.current.user?.username).toBe('old');
+    expect(clearToken).not.toHaveBeenCalled();
+  });
+
+  // The query cache outlives the session: without this, the next person to sign
+  // in on the same browser tab would briefly see the previous person's cached
+  // ledger before it refetched.
+  test('logout empties the query cache so the next user never sees the previous one\'s data', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue('existing-token');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 3, username: 'juan1', role: 'customer', personId: 1 });
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+    queryClient.setQueryData(['me', 'ledger'], [{ id: 1 }]);
+
+    act(() => result.current.logout());
+
+    expect(queryClient.getQueryData(['me', 'ledger'])).toBeUndefined();
+  });
+
+  test('login empties the query cache before the new user lands', async () => {
+    (getToken as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (loginRequest as ReturnType<typeof vi.fn>).mockResolvedValue('new-jwt');
+    (fetchCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 4, username: 'maria', role: 'customer', personId: 2 });
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    queryClient.setQueryData(['me', 'ledger'], [{ id: 1 }]);
+
+    await act(async () => {
+      await result.current.login('maria', 'secret123');
+    });
+
+    expect(queryClient.getQueryData(['me', 'ledger'])).toBeUndefined();
   });
 });

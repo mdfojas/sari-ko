@@ -59,4 +59,37 @@ describe('PATCH /me/username', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  async function patchAs(id: number, payload?: unknown) {
+    return app.inject({
+      method: 'PATCH',
+      url: '/me/username',
+      headers: authHeaderFor('store_owner', { accountId: id, username: 'owner1' }),
+      ...(payload === undefined ? {} : { payload: payload as object }),
+    });
+  }
+
+  it('returns 400, not a 500, when there is no body at all', async () => {
+    const id = await createAccount({ username: 'owner1', role: 'store_owner' });
+    expect((await patchAs(id)).statusCode).toBe(400);
+  });
+
+  it.each([
+    ['a number', { username: 123 }],
+    ['blank spaces', { username: '   ' }],
+    ['an over-long name', { username: 'x'.repeat(5000) }],
+    ['a NUL byte', { username: 'a\u0000b' }],
+  ])('rejects %s and leaves the username unchanged', async (_label, payload) => {
+    const id = await createAccount({ username: 'owner1', role: 'store_owner' });
+    expect((await patchAs(id, payload)).statusCode).toBe(400);
+    const { rows } = await pool.query(`SELECT username FROM accounts WHERE id = $1`, [id]);
+    expect(rows[0].username).toBe('owner1');
+  });
+
+  it('stores the trimmed username', async () => {
+    const id = await createAccount({ username: 'owner1', role: 'store_owner' });
+    expect((await patchAs(id, { username: '  tidy-name  ' })).statusCode).toBe(204);
+    const { rows } = await pool.query(`SELECT username FROM accounts WHERE id = $1`, [id]);
+    expect(rows[0].username).toBe('tidy-name');
+  });
 });

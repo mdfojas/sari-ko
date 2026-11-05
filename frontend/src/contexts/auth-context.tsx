@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchCurrentUser, loginRequest } from '@/lib/auth-client';
 import { ApiError } from '@/lib/api-client';
 import { clearToken, getToken, setToken } from '@/lib/token-storage';
@@ -12,12 +13,15 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  // Re-reads /me, e.g. after the username changed, so the sidebar and profile show the new one.
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(username: string, password: string) {
     const token = await loginRequest(username, password);
+    // The query cache outlives a session: start every sign-in empty, so one
+    // user never briefly sees the previous user's cached data.
+    queryClient.clear();
     setToken(token);
     try {
       const current = await fetchCurrentUser();
@@ -61,14 +68,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function refreshUser() {
+    try {
+      setUser(await fetchCurrentUser());
+    } catch {
+      // Keep the current user and token: a failed refresh (network blip) must
+      // never sign anyone out, and the change itself already succeeded.
+    }
+  }
+
   function logout() {
     clearToken();
+    queryClient.clear();
     setUser(null);
     router.replace(LOGIN_PATH);
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

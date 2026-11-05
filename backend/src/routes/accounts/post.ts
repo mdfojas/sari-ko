@@ -22,7 +22,7 @@ export async function post(request: FastifyRequest<{ Body: CreateAccountBody }>,
     return reply.code(403).send({ error: 'Forbidden' });
   }
 
-  let username = body.username;
+  let username = body.username?.trim();
   if (targetRole === 'customer') {
     const person = await findPersonById(body.person_id as number);
     if (!person) {

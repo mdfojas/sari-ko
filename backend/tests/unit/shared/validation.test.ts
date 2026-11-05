@@ -6,6 +6,8 @@ import {
   isPlainObject,
   isPositiveInteger,
   MAX_AMOUNT_TEXT,
+  MAX_USERNAME_LENGTH,
+  validateUsername,
 } from '../../../src/shared/validation.js';
 
 describe('shared validation helpers', () => {
@@ -33,5 +35,29 @@ describe('shared validation helpers', () => {
     expect(hasNul('a\u0000b')).toBe(true);
     expect(hasNul('ab')).toBe(false);
     expect(hasNul(5)).toBe(false);
+  });
+
+  describe('validateUsername', () => {
+    it.each(['admin', 'maria2', 'a', 'x'.repeat(50), '  padded  ', 'juan.dela-cruz_1'])('accepts %j', (value) => {
+      expect(validateUsername(value)).toBeNull();
+    });
+
+    it.each([undefined, null, 123, {}, [], true])('rejects a non-string (%j)', (value) => {
+      expect(validateUsername(value)).toBe('username must be text');
+    });
+
+    it.each(['', '   ', '\t\n'])('rejects blank %j', (value) => {
+      expect(validateUsername(value)).toBe('username cannot be blank');
+    });
+
+    it('rejects a username over the length limit, measured after trimming', () => {
+      expect(MAX_USERNAME_LENGTH).toBe(50);
+      expect(validateUsername('x'.repeat(51))).toBe('username can be at most 50 characters');
+      expect(validateUsername(`  ${'x'.repeat(50)}  `)).toBeNull();
+    });
+
+    it('rejects a NUL byte', () => {
+      expect(validateUsername('a\u0000b')).toBe('Text cannot contain NUL characters');
+    });
   });
 });

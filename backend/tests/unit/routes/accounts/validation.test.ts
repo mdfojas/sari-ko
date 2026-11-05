@@ -49,4 +49,23 @@ describe('canManageAccountOfRole', () => {
     expect(canManageAccountOfRole('customer', 'customer')).toBe(false);
     expect(canManageAccountOfRole('customer', 'admin')).toBe(false);
   });
+
+describe('validateCreateAccount, input shape', () => {
+  it.each([undefined, null, 'x', 5, []])('rejects a body that is not a JSON object (%j)', (body) => {
+    expect(validateCreateAccount(body as never)).toBe('Request body must be a JSON object');
+  });
+
+  it.each([123, '   ', {}, 'x'.repeat(51), 'a\u0000b'])('rejects the username %j when one is given', (username) => {
+    expect(validateCreateAccount({ role: 'admin', username } as never)).toBeTruthy();
+    expect(validateCreateAccount({ role: 'customer', person_id: 1, username } as never)).toBeTruthy();
+  });
+
+  it('still lets a customer omit the username (it is generated)', () => {
+    expect(validateCreateAccount({ role: 'customer', person_id: 1 })).toBeNull();
+  });
+
+  it.each([123, {}, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']])('rejects a non-text password (%j)', (password) => {
+    expect(validateCreateAccount({ role: 'admin', username: 'admin1', password } as never)).toBeTruthy();
+  });
+});
 });
