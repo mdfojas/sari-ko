@@ -292,7 +292,7 @@ export default function LoansPage() {
                       <tr className="border-b border-border bg-bg">
                         <td />
                         <td colSpan={4}>
-                          <PersonLedger personId={person.id} />
+                          <PersonLedger scope="staff" personId={person.id} />
                         </td>
                       </tr>
                     )}

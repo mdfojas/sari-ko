@@ -13,11 +13,11 @@ const formatWhen = (iso: string) =>
 
 export function LoanHistoryModal({
   loanId,
-  scope = 'staff',
+  scope,
   onClose,
 }: {
   loanId: number;
-  scope?: LoanScope;
+  scope: LoanScope;
   onClose: () => void;
 }) {
   const { data, isLoading, isError, error } = useQuery({

@@ -6,18 +6,19 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { LoanHistoryModal } from '@/components/loan-history-modal';
 import { extractErrorMessage } from '@/lib/error-message';
 import { deleteLineItem, deleteLoan, getLoan, listLineItems, type LineItem } from '@/lib/loans-client';
-import { scopedKey, type LoanScope } from '@/lib/loan-scope';
+import { scopedKey } from '@/lib/loan-scope';
 import { getMyLoan, listMyLineItems } from '@/lib/me-client';
 import { peso } from '@/lib/money';
 
-interface LoanLineItemsProps {
-  loanId: number;
-  // Unused in the customer scope, where there is nothing to invalidate by person.
-  personId?: number;
-  scope?: LoanScope;
-}
+// `scope` is required on purpose: forgetting it must be a compile error, not a
+// silent fall back to the staff view with its delete controls. A person id is
+// only meaningful (and required) for staff.
+type LoanLineItemsProps = { loanId: number } & (
+  | { scope: 'staff'; personId: number }
+  | { scope: 'me'; personId?: undefined }
+);
 
-export function LoanLineItems({ loanId, personId, scope = 'staff' }: LoanLineItemsProps) {
+export function LoanLineItems({ loanId, personId, scope }: LoanLineItemsProps) {
   // A customer only ever reads: no delete control, and the /me bridges instead
   // of the staff endpoints.
   const readOnly = scope === 'me';

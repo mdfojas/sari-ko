@@ -32,7 +32,7 @@ export default function CatalogPage() {
   const products = productsQuery.data ?? [];
   const needle = searchText.trim().toLowerCase();
   const shown = products.filter(
-    (p) => !needle || p.name.toLowerCase().includes(needle) || p.other_names.some((n) => n.toLowerCase().includes(needle)),
+    (p) => !needle || p.name.toLowerCase().includes(needle) || (p.other_names ?? []).some((n) => n.toLowerCase().includes(needle)),
   );
 
   return (

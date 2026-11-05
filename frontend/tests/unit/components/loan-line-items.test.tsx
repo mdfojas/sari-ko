@@ -58,7 +58,7 @@ function renderIt() {
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
   render(
     <QueryClientProvider client={queryClient}>
-      <LoanLineItems loanId={9} personId={2} />
+      <LoanLineItems loanId={9} personId={2} scope="staff" />
     </QueryClientProvider>
   );
   return { invalidate, queryClient };

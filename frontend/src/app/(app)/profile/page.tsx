@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { RoleBadge } from '@/components/role-badge';
 import { TopbarSlot } from '@/components/topbar-slot';
@@ -22,8 +22,10 @@ export default function ProfilePage() {
   useRequireRole(ALLOWED_ROLES);
   const { user, refreshUser } = useAuth();
   const [username, setUsername] = useState(user?.username ?? '');
+  // What is in the field right now, readable from async callbacks without a stale closure.
+  const usernameRef = useRef(username);
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [usernameSaved, setUsernameSaved] = useState(false);
+  const [usernameSaved, setUsernameSaved] = useState<'updated' | 'saved-stale' | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -32,9 +34,13 @@ export default function ProfilePage() {
   const usernameMutation = useMutation({
     mutationFn: (value: string) => changeUsername(value),
     onSuccess: async (_data, value) => {
-      setUsername(value);
-      setUsernameSaved(true);
-      await refreshUser();
+      // Only tidy the field if the user hasn't kept typing since they pressed Save.
+      setUsername((typed) => (typed.trim() === value ? value : typed));
+      // The change is saved either way; if /me could not be re-read, the sidebar
+      // keeps the old name until a reload, and we say so rather than claim all is well.
+      const refreshed = await refreshUser();
+      // ...and don't announce a result for a name that has been edited again meanwhile.
+      if (usernameRef.current.trim() === value) setUsernameSaved(refreshed ? 'updated' : 'saved-stale');
     },
     onError: (err: unknown) => setUsernameError(extractErrorMessage(err)),
   });
@@ -59,7 +65,7 @@ export default function ProfilePage() {
 
   function handleSaveUsername() {
     if (usernameMutation.isPending) return;
-    setUsernameSaved(false);
+    setUsernameSaved(null);
     const trimmed = username.trim();
     if (trimmed === '') {
       setUsernameError('Username is required.');
@@ -115,7 +121,12 @@ export default function ProfilePage() {
             id="mp-username"
             value={username}
             autoComplete="username"
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              usernameRef.current = e.target.value;
+              setUsername(e.target.value);
+              setUsernameError(null);
+              setUsernameSaved(null);
+            }}
             className={inputClass}
           />
         </div>
@@ -126,7 +137,9 @@ export default function ProfilePage() {
         )}
         {usernameSaved && (
           <p role="status" className="mb-3 text-sm text-accent-dark">
-            Username updated.
+            {usernameSaved === 'updated'
+              ? 'Username updated.'
+              : 'Username saved. Reload the page to see the new name everywhere.'}
           </p>
         )}
         <button
@@ -149,7 +162,11 @@ export default function ProfilePage() {
             type="password"
             autoComplete="current-password"
             value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
+            onChange={(e) => {
+              setCurrentPassword(e.target.value);
+              setPasswordError(null);
+              setPasswordSaved(false);
+            }}
             className={inputClass}
           />
         </div>
@@ -162,7 +179,11 @@ export default function ProfilePage() {
             type="password"
             autoComplete="new-password"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              setPasswordError(null);
+              setPasswordSaved(false);
+            }}
             className={inputClass}
           />
         </div>

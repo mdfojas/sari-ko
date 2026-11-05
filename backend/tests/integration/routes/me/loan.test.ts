@@ -102,6 +102,7 @@ describe('GET /me/loans/:id', () => {
       expect(someoneElses.statusCode).toBe(404);
       expect(someoneElses.statusCode).toBe(missing.statusCode);
       expect(someoneElses.body).toBe(missing.body);
+      expect(someoneElses.json()).toEqual({ error: 'Loan not found' });
     },
   );
 });

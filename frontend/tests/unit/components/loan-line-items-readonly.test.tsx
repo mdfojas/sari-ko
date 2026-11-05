@@ -17,11 +17,11 @@ vi.mock('@/lib/me-client', () => ({ getMyLoan: vi.fn(), listMyLineItems: vi.fn()
 const loan = { id: 9, person_id: 2, note: null, total: 1500, created_at: '', updated_at: '2026-01-05T00:00:00.000Z' };
 const item = { id: 31, loan_id: 9, product_id: null, description: 'Kulang', quantity: null, unit_price: null, amount: 1500, created_at: '', updated_at: '' };
 
-function renderIt(scope?: 'me') {
+function renderIt(scope: 'me' | 'staff' = 'staff') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <LoanLineItems loanId={9} personId={2} scope={scope} />
+      {scope === 'me' ? <LoanLineItems loanId={9} scope="me" /> : <LoanLineItems loanId={9} personId={2} scope="staff" />}
     </QueryClientProvider>
   );
   return { queryClient };

@@ -78,7 +78,11 @@ export function PersonLedger(props: PersonLedgerProps) {
                 <tr>
                   <td />
                   <td colSpan={4} className="px-3">
-                    <LoanLineItems loanId={entry.id} personId={personId} scope={scope} />
+                    {scope === 'me' ? (
+                      <LoanLineItems loanId={entry.id} scope="me" />
+                    ) : (
+                      <LoanLineItems loanId={entry.id} personId={personId as number} scope="staff" />
+                    )}
                   </td>
                 </tr>
               )}

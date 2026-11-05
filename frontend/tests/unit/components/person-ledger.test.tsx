@@ -22,7 +22,7 @@ const ledger: LedgerEntry[] = [
 function renderLedger() {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <PersonLedger personId={2} />
+      <PersonLedger scope="staff" personId={2} />
     </QueryClientProvider>
   );
 }

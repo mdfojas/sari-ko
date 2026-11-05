@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TopbarProvider } from '@/contexts/topbar-context';
 import { Topbar } from '@/components/topbar';
@@ -47,7 +47,7 @@ const savePassword = () => screen.getByRole('button', { name: /save password/i }
 describe('ProfilePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    refreshUser.mockResolvedValue(undefined);
+    refreshUser.mockResolvedValue(true);
     signInAs('store_owner');
   });
 
@@ -104,6 +104,71 @@ describe('ProfilePage', () => {
       expect(refreshUser).not.toHaveBeenCalled();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
       expect(usernameInput()).toHaveValue('taken');
+    });
+
+    test('a success message does not outlive the next edit', async () => {
+      (changeUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      renderPage();
+      fireEvent.change(usernameInput(), { target: { value: 'maria2' } });
+      fireEvent.click(saveUsername());
+      await screen.findByRole('status');
+
+      fireEvent.change(usernameInput(), { target: { value: 'maria3' } });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    test('an error does not outlive the next edit', async () => {
+      (changeUsername as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(409, { error: 'That username is already taken' }));
+      renderPage();
+      fireEvent.change(usernameInput(), { target: { value: 'taken' } });
+      fireEvent.click(saveUsername());
+      await screen.findByRole('alert');
+
+      fireEvent.change(usernameInput(), { target: { value: 'taken2' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    test('says so, instead of claiming everything is fine, when the saved name could not be re-read', async () => {
+      (changeUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      refreshUser.mockResolvedValue(false);
+      renderPage();
+      fireEvent.change(usernameInput(), { target: { value: 'maria2' } });
+      fireEvent.click(saveUsername());
+
+      expect(await screen.findByRole('status')).toHaveTextContent(/saved.*reload/i);
+    });
+
+    test('typing while the save is in flight is not overwritten by the saved value', async () => {
+      let finish: (v: null) => void = () => {};
+      (changeUsername as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((r) => (finish = r)));
+      renderPage();
+      fireEvent.change(usernameInput(), { target: { value: 'maria2' } });
+      fireEvent.click(saveUsername());
+      await screen.findByRole('button', { name: /saving/i });
+
+      fireEvent.change(usernameInput(), { target: { value: 'maria3' } });
+      await act(async () => {
+        finish(null);
+      });
+
+      expect(usernameInput()).toHaveValue('maria3');
+    });
+
+    test('does not announce "updated" for a name that was edited again while the refresh was pending', async () => {
+      (changeUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      let finishRefresh: (ok: boolean) => void = () => {};
+      refreshUser.mockReturnValue(new Promise((r) => (finishRefresh = r)));
+      renderPage();
+      fireEvent.change(usernameInput(), { target: { value: 'maria2' } });
+      fireEvent.click(saveUsername());
+      await waitFor(() => expect(refreshUser).toHaveBeenCalled());
+
+      fireEvent.change(usernameInput(), { target: { value: 'maria3' } });
+      await act(async () => {
+        finishRefresh(true);
+      });
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
     test('locks the button while saving', async () => {
@@ -182,6 +247,25 @@ describe('ProfilePage', () => {
         expect(cached.join('')).not.toContain('old-password');
         expect(cached.join('')).not.toContain('brand-new-pass');
       });
+    });
+
+    test('a password message does not outlive the next edit', async () => {
+      (changePassword as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      renderPage();
+      fireEvent.change(currentInput(), { target: { value: 'old-password' } });
+      fireEvent.change(newInput(), { target: { value: 'brand-new-pass' } });
+      fireEvent.click(savePassword());
+      await screen.findByText(/password updated/i);
+
+      fireEvent.change(currentInput(), { target: { value: 'x' } });
+      expect(screen.queryByText(/password updated/i)).not.toBeInTheDocument();
+
+      (changePassword as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(401, { error: 'Current password is incorrect' }));
+      fireEvent.change(newInput(), { target: { value: 'another-new-pass' } });
+      fireEvent.click(savePassword());
+      await screen.findByRole('alert');
+      fireEvent.change(newInput(), { target: { value: 'another-new-pas2' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     test('a username error and a password error do not overwrite each other', async () => {

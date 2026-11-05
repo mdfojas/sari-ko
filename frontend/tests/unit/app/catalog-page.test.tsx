@@ -87,6 +87,18 @@ describe('CatalogPage', () => {
     expect(screen.getByText('Coca-Cola 1.5L')).toBeInTheDocument();
   });
 
+  test('searching still works for a product that has no alternative names at all', async () => {
+    (listProducts as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 9, name: 'Mystery Item', sale_price: 100, barcode: null, created_at: '', updated_at: '' },
+      products[2],
+    ]);
+    renderPage();
+    await screen.findByText('Mystery Item');
+    fireEvent.change(screen.getByLabelText(/search products/i), { target: { value: 'soap' } });
+    expect(screen.getByText('Safeguard Soap')).toBeInTheDocument();
+    expect(screen.queryByText('Mystery Item')).not.toBeInTheDocument();
+  });
+
   test('says so when nothing matches', async () => {
     renderPage();
     await screen.findByText('Coca-Cola 1.5L');

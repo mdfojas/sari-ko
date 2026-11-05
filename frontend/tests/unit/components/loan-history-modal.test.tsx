@@ -32,7 +32,7 @@ const entries: LoanHistoryEntry[] = [
 function renderModal(onClose = vi.fn()) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <LoanHistoryModal loanId={9} onClose={onClose} />
+      <LoanHistoryModal loanId={9} scope="staff" onClose={onClose} />
     </QueryClientProvider>
   );
   return { onClose };
